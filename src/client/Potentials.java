@@ -101,7 +101,7 @@ public class Potentials {
     }
     
     public int getTempStat(PotentialStat effect) {
-        return tempstats.get(effect);
+        return tempstats.containsKey(effect)?tempstats.get(effect):0;
     }
     
     public String getName() {
