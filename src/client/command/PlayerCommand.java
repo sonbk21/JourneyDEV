@@ -149,6 +149,7 @@ public class PlayerCommand extends Command {
                         c.getPlayer().addStat(type, Integer.valueOf(args[1]));
                         c.getPlayer().updateSingleStat(type, c.getPlayer().getStat(type) + Integer.valueOf(args[1]));
                         c.getPlayer().setRemainingAp(c.getPlayer().getRemainingAp() - Integer.valueOf(args[1]));
+                        c.getPlayer().updateSingleStat(MapleStat.AVAILABLEAP, c.getPlayer().getRemainingAp());
                     } else {
                         c.getPlayer().dropMessage(6, "You don't have enough AP left.");
                     }
