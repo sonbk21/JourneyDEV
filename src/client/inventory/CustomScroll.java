@@ -37,7 +37,7 @@ public class CustomScroll extends Item {
     }
     
     public boolean addEffect(EquipStat se, boolean highvalue, boolean dark) { //add a one stat effect, return wether it can be added or not
-        success = success/((highvalue)?(dark)?30:10:(dark)?70:60);
+        success = (int) (success * ((highvalue)?(dark)?0.3:0.1:(dark)?0.7:0.6));
         cursed += (dark)?(highvalue)?35:15:0;
         if (success < 1 || cursed > 99)
             return false;
@@ -46,7 +46,7 @@ public class CustomScroll extends Item {
     }
     
     public boolean addSpecialEffect(List<Pair<EquipStat, Integer>> effects, int success, int cursed) { //add a special effect, for example dragon stone
-        this.success += success;
+        this.success = (int) (success * ((float) success)/100);
         this.cursed += cursed;
         if (this.success < 1 || this.cursed > 99)
             return false;
