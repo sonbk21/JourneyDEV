@@ -54,9 +54,12 @@ public class PlayerStats {
     }
     
     public int decreaseStat(MapleStat type, int amount) {
-        if (stats.containsKey(type))
+        if (stats.containsKey(type)) {
             stats.put(type, stats.get(type) - amount);
-        return stats.get(type);
+            return stats.get(type);
+        } else {
+            return 0;
+        }
     }
     
     public void setStat(MapleStat type, int amount) {
