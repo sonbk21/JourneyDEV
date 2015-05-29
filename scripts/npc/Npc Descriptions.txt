@@ -1,0 +1,23 @@
+90000021 - Gaga, Fishing NPC:
+- sells baits for fishing
+- TODO: item exchange for fish
+
+9209001 - Lucia, Maple Coin Shop:
+- sells end-game items for maple coins
+- exchanges maple coins for maple leaves
+
+9250133 - Boss PQ Host:
+- starts boss pq
+- access to universal shop
+- TODO: item exchange
+- lists records
+
+admin - Main NPC script:
+- special map warp
+- vote point exchange
+- opens maple coin shop
+- opens equipshop
+- tutorial function/tos
+
+equipshop:
+- sells equips for all classes
