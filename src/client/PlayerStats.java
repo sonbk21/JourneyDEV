@@ -129,11 +129,11 @@ public class PlayerStats {
         if (watkbuff != null) {
             addLocalStat(EquipStat.WATK, watkbuff);
         }
-        if (MapleJob.getById(stats.get(MapleStat.JOB)) == MapleJob.BOWMAN) {
+        if (job == MapleJob.BOWMAN) {
             Skill expert = null;
-            if (MapleJob.getById(stats.get(MapleStat.JOB)) == MapleJob.MARKSMAN) {
+            if (job == MapleJob.MARKSMAN) {
                 expert = SkillFactory.getSkill(3220004);
-            } else if (MapleJob.getById(stats.get(MapleStat.JOB)) == MapleJob.BOWMASTER) {
+            } else if (job == MapleJob.BOWMASTER) {
                 expert = SkillFactory.getSkill(3120005);
             }
             if (expert != null) {
