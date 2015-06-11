@@ -367,36 +367,4 @@ public class PlayerStats {
     public void disableUpdate() {
         updateStats = false;
     }
-    
-    public void saveStats(int charid) {
-        /*if (!updateStats)
-            return;*/
-        
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            PreparedStatement ps;
-            ps = con.prepareStatement("UPDATE playerstats SET level = ?, str = ?, dex = ?, luk = ?, `int` = ?, maxhp = ?, maxmp = ?, sp = ?, ap = ?, skincolor = ?, job = ?, hair = ?, face = ?, ability0 = ?, ability1 = ?, ability2 = ? WHERE charid = ?");
-            ps.setShort(1, level);
-            ps.setShort(2, getStat(MapleStat.STR));
-            ps.setShort(3, getStat(MapleStat.DEX));
-            ps.setShort(4, getStat(MapleStat.LUK));
-            ps.setShort(5, getStat(MapleStat.INT));
-            ps.setShort(6, getStat(MapleStat.MAXHP));
-            ps.setShort(7, getStat(MapleStat.MAXMP));
-            ps.setShort(8, getStat(MapleStat.AVAILABLESP));
-            ps.setShort(9, getStat(MapleStat.AVAILABLEAP));
-            ps.setByte(10, (byte) skincolor.getId());
-            ps.setShort(11, (short) job.getId());
-            ps.setInt(12, hair);
-            ps.setShort(13, face);
-            ps.setShort(14, (short) (rank.getValue()*1000 + lines.get(0).getSuperior().ordinal()*100 + lines.get(0).getEffect().ordinal()));
-            ps.setShort(15, (short) (lines.get(1).getSuperior().ordinal()*100 + lines.get(1).getEffect().ordinal()));
-            ps.setShort(16, (short) (lines.get(2).getSuperior().ordinal()*100 + lines.get(2).getEffect().ordinal()));
-            ps.setInt(17, charid);
-            ps.executeUpdate();
-            ps.close();
-        } catch (SQLException sqle) {
-            System.out.println("Error."+sqle);
-        }
-    }
 }
