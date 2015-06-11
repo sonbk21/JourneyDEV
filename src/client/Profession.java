@@ -11,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import tools.DatabaseConnection;
-import tools.Pair;
 
 /**
  * JourneyMS
@@ -19,50 +18,48 @@ import tools.Pair;
  */
 public class Professions {
     
-    private Pair<MapleProfession, MapleProfession> professions;
+    private MapleProfession primary;
+    private MapleProfession secondary;
     
-    public Professions(MapleProfession left, MapleProfession right) {
-        professions.left = left;
-        professions.right = right;
+    public Professions(MapleProfession primary, MapleProfession secondary) {
+        this.primary = primary;
+        this.secondary = secondary;
     }
     
     public Professions() {
-        professions.left = null;
-        professions.right = null;
+        primary = null;
+        secondary = null;
     }
     
     public enum ProfessionType {
-        NONE, MINING, HERBALISM, CRAFTING, ALCHEMY;
-        
-        public String getName() {
-            return this.toString().substring(0, 1).concat(this.toString().toLowerCase());
-        }
+        NONE, MINING, HERBALISM, SMITHING, CRAFTING, ALCHEMY;
     }
     
     public enum ProfessionLevel {
-        NEWBIE(100, 10), APPRENTICE(250, 30), ASSISTANT(500, 70), FOREMAN(1200, 100), MASTER(2500, 120), UNREACHABLE(0, 255);
-        private final int threshold;
-        private final int levelreq;
+        NEWBIE((short) 0, (byte) 10), APPRENTICE((short) 100, (byte) 30), ASSISTANT((short) 250, (byte) 50), FOREMAN((short) 500, (byte) 70), 
+        EXPERT((short) 1200, (byte) 100), MASTER((short) 2500, (byte) 120);
+        private final short threshold;
+        private final byte levelreq;
         
-        ProfessionLevel(int threshold, int levelreq) {
+        ProfessionLevel(short threshold, byte levelreq) {
             this.threshold = threshold;
             this.levelreq = levelreq;
         }
         
-        public int getThreshold() {
+        public short getThreshold() {
             return threshold;
         }
         
-        public int getLevelReq() {
+        public byte getLevelReq() {
             return levelreq;
         }
         
         public ProfessionLevel getNext() {
-            return ProfessionLevel.values()[this.ordinal() + 1];
+            return (this == MASTER)? MASTER : ProfessionLevel.values()[this.ordinal() + 1];
         }
         
         public String getName() {
-            return this.toString().substring(0, 1).concat(this.toString().toLowerCase());
+            return this.toString().substring(0, 1).concat(this.toString().substring(1).toLowerCase());
         }
     }
     
@@ -70,25 +67,38 @@ public class Professions {
         
         private final ProfessionType type;
         private ProfessionLevel level;
-        private Integer exp;
+        private short exp;
         
-        public MapleProfession(ProfessionType type, ProfessionLevel level, int exp) {
+        public MapleProfession(ProfessionType type, ProfessionLevel level, short exp) {
             this.type = type;
             this.level = level;
             this.exp = exp;
         }
         
         public boolean gainExp(int gain, short chrlevel) {
+            if (level == ProfessionLevel.MASTER)
+                return false;
+            
             exp += gain;
-            if (exp >= level.getNext().getThreshold() && chrlevel >= level.getNext().getLevelReq()) {
-                level = level.getNext();
+            
+            if (exp >= level.getNext().getThreshold()) {
+                exp = level.getNext().getThreshold();
                 return true;
             }
             return false;
         }
         
-        public String getName(boolean left) {
-            return type.getName();
+        public void increaseLevel() {
+            level = level.getNext();
+            exp = 0;
+        }
+        
+        public String getName() {
+            return type.toString().substring(0, 1).concat(type.toString().substring(1).toLowerCase());
+        }
+        
+        public String getHarvestableName() {
+            return (type == ProfessionType.HERBALISM)? "Herb" : "Vein";
         }
         
         public ProfessionType getType() {
@@ -104,21 +114,33 @@ public class Professions {
         }
     }
     
-    public void changeProfession(ProfessionType oldtype, ProfessionType newtype) {
-        if (professions.left.getType() == oldtype)
-            professions.left = new MapleProfession(newtype, ProfessionLevel.NEWBIE, 0);
+    public void changeProfession(boolean prim, ProfessionType newtype) {
+        if (prim)
+            primary = new MapleProfession(newtype, ProfessionLevel.NEWBIE, (short) 0);
         else
-            professions.right = new MapleProfession(newtype, ProfessionLevel.NEWBIE, 0);
+            secondary = new MapleProfession(newtype, ProfessionLevel.NEWBIE, (short) 0);
     }
     
-    public MapleProfession getProfession(ProfessionType type) {
-        if (professions.left == null)
+    public MapleProfession getProfession(boolean prim) {
+        if (primary == null)
             return null;
         
-        if (professions.left.getType() == type)
-            return professions.left;
+        if (prim)
+            return primary;
         else
-            return professions.right;
+            return secondary;
+    }
+    
+    public MapleProfession getProfession(ProfessionType prof) {
+        if (primary == null)
+            return null;
+        
+        if (primary.getType() == prof)
+            return primary;
+        else if (secondary.getType() == prof)
+            return secondary;
+        else
+            return null;
     }
     
     public void loadProfessions(final int charid) {
@@ -127,22 +149,24 @@ public class Professions {
             try (ResultSet rs = ps.executeQuery()) {
                 boolean first = true;
                 while (rs.next()) {
-                    MapleProfession loaded = new MapleProfession(ProfessionType.values()[rs.getByte("type")], ProfessionLevel.values()[rs.getByte("level")], rs.getInt("exp"));
+                    MapleProfession loaded = new MapleProfession(ProfessionType.values()[rs.getByte("type")], ProfessionLevel.values()[rs.getByte("level")], rs.getShort("exp"));
                     if (first) {
-                        professions.left = loaded;
+                        primary = loaded;
                         first = false;
                     } else {
-                        professions.right = loaded;
+                        secondary = loaded;
                     }
                 }
+                rs.close();
             }
+            ps.close();
         } catch (SQLException sqle) {
             System.out.println("Error."+sqle);
         }
     }
 
     public void saveProfessions(final int charid) {
-        if (professions.left == null) {
+        if (primary == null) {
             return;
         }
         
@@ -156,21 +180,21 @@ public class Professions {
             query.append("INSERT INTO professions VALUES (");
             query.append(charid);
             query.append(", ");
-            query.append(professions.left.getType().ordinal());
+            query.append(primary.getType().ordinal());
             query.append(", ");
-            query.append(professions.left.getLevel().ordinal());
+            query.append(primary.getLevel().ordinal());
             query.append(", ");
-            query.append(professions.left.getExp());
+            query.append(primary.getExp());
             query.append(")");
-            if (professions.right != null) {
+            if (secondary != null) {
                 query.append(",(");
                 query.append(charid);
                 query.append(", ");
-                query.append(professions.right.getType().ordinal());
+                query.append(secondary.getType().ordinal());
                 query.append(", ");
-                query.append(professions.right.getLevel().ordinal());
+                query.append(secondary.getLevel().ordinal());
                 query.append(", ");
-                query.append(professions.right.getExp());
+                query.append(secondary.getExp());
                 query.append(")");
             }
             ps = con.prepareStatement(query.toString());
