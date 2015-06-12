@@ -20,12 +20,10 @@ import client.properties.Skill;
 import client.properties.SkillFactory;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.Map;
-import tools.DatabaseConnection;
 import tools.Randomizer;
 
 /**
@@ -116,7 +114,6 @@ public class PlayerStats {
     
     public void setBDM(float bdm) {
         bossdamage = bdm;
-        updateStats = true;
     }
     
     public void recalcLocalStats(MapleCharacter chr) {
@@ -335,7 +332,7 @@ public class PlayerStats {
     }
     
     public void resetAbility() {
-        rank = Rank.values()[(lines.isEmpty())?1:(rank.equals(Rank.GODLY))?5:(rank.getValue())+Randomizer.nextInt(51)/50];
+        rank = Rank.values()[(lines.isEmpty() || rank == Rank.NULL)?1:(rank.equals(Rank.GODLY))?5:(rank.getValue())+Randomizer.nextInt(51)/50];
         for (int i = 0; i < lines.size(); i++) {
             lines.add(new AbilityLine());
             lines.removeFirst();
@@ -366,5 +363,27 @@ public class PlayerStats {
     
     public void disableUpdate() {
         updateStats = false;
+    }
+    
+    public PreparedStatement getStatement(Connection con, int charid) throws SQLException {
+        PreparedStatement ps = con.prepareStatement("UPDATE characters SET level = ?, str = ?, dex = ?, luk = ?, `int` = ?, maxhp = ?, maxmp = ?, sp = ?, ap = ?, skincolor = ?, job = ?, hair = ?, face = ?, ability0 = ?, ability1 = ?, ability2 = ? WHERE id = ?");
+        ps.setShort(1, level);
+        ps.setShort(2, getStat(MapleStat.STR));
+        ps.setShort(3, getStat(MapleStat.DEX));
+        ps.setShort(4, getStat(MapleStat.LUK));
+        ps.setShort(5, getStat(MapleStat.INT));
+        ps.setShort(6, getStat(MapleStat.MAXHP));
+        ps.setShort(7, getStat(MapleStat.MAXMP));
+        ps.setShort(8, getStat(MapleStat.AVAILABLESP));
+        ps.setShort(9, getStat(MapleStat.AVAILABLEAP));
+        ps.setByte(10, (byte) skincolor.getId());
+        ps.setShort(11, (short) job.getId());
+        ps.setInt(12, hair);
+        ps.setShort(13, face);
+        ps.setShort(14, (short) (rank.getValue()*1000 + lines.get(0).getSuperior().ordinal()*100 + lines.get(0).getEffect().ordinal()));
+        ps.setShort(15, (short) (lines.get(1).getSuperior().ordinal()*100 + lines.get(1).getEffect().ordinal()));
+        ps.setShort(16, (short) (lines.get(2).getSuperior().ordinal()*100 + lines.get(2).getEffect().ordinal()));
+        ps.setInt(17, charid);
+        return ps;
     }
 }
