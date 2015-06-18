@@ -10,11 +10,8 @@ import client.inventory.Equip;
 import client.inventory.Equip.EquipStat;
 import client.inventory.Item;
 import client.inventory.MapleInventoryType;
-import client.properties.AbilityLine;
-import client.properties.AbilityLine.AbilityStat;
 import client.properties.MapleBuffStat;
 import client.properties.MapleJob;
-import client.properties.MapleSkinColor;
 import client.properties.MapleStat;
 import client.properties.Skill;
 import client.properties.SkillFactory;
@@ -22,8 +19,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.EnumMap;
-import java.util.LinkedList;
-import java.util.Map;
 import tools.Randomizer;
 
 /**
@@ -34,38 +29,10 @@ public class PlayerStats {
 
     private final EnumMap<MapleStat, Short> stats = new EnumMap<>(MapleStat.class);
     private final EnumMap<EquipStat, Short> localstats = new EnumMap<>(EquipStat.class);
-    
-    private final LinkedList<AbilityLine> lines = new LinkedList<>();
-    private final EnumMap<AbilityLine.AbilityStat, Short> tempstats = new EnumMap<>(AbilityLine.AbilityStat.class);
-    private Rank rank;
-    private boolean addedStats = false;
-    private boolean updateStats = false;
-    
     private float bossdamage = 1;
-    public short level;
-    public int exp;
-    public int meso;
     
-    public short face;
-    public int hair;
-    public MapleSkinColor skincolor = MapleSkinColor.NORMAL;
-    public MapleJob job = MapleJob.BEGINNER;
-    public MapleGender gender;
-    public String name;
-    
-    public enum MapleGender {
-        MALE, FEMALE;
-    }
-    
-    public enum Rank {
-        NULL, BASIC, INTERMEDIATE, ADVANCED, LEGENDARY, GODLY;
-        
-        public byte getValue() {
-            return (byte) this.ordinal();
-        }
-    }
-    
-    public PlayerStats(short str, short dex, short lnt, short luk, short maxhp, short maxmp, short ap, short sp) {
+    public PlayerStats(short level, short str, short dex, short lnt, short luk, short maxhp, short maxmp, short ap, short sp, short job) {
+        stats.put(MapleStat.LEVEL, level);
         stats.put(MapleStat.STR, str);
         stats.put(MapleStat.DEX, dex);
         stats.put(MapleStat.INT, lnt);
@@ -76,6 +43,15 @@ public class PlayerStats {
         stats.put(MapleStat.MAXMP, maxmp);
         stats.put(MapleStat.AVAILABLEAP, ap);
         stats.put(MapleStat.AVAILABLESP, sp);
+        stats.put(MapleStat.JOB, job);
+    }
+    
+    public MapleJob getJob() {
+        return MapleJob.getById(stats.get(MapleStat.JOB));
+    }
+    
+    public void setJob(MapleJob job) {
+        stats.put(MapleStat.JOB, (short) job.getId());
     }
     
     public short getStat(MapleStat type) {
@@ -83,8 +59,6 @@ public class PlayerStats {
     }
     
     public short addToStat(MapleStat type, int amount) {
-        updateStats = true;
-        
         if (stats.containsKey(type))
             stats.put(type, (short) (stats.get(type) + amount));
         else
@@ -92,20 +66,8 @@ public class PlayerStats {
         return stats.get(type);
     }
     
-    public short decreaseStat(MapleStat type, short amount) {
-        updateStats = true;
-        
-        if (stats.containsKey(type)) {
-            stats.put(type, (short) (stats.get(type) - amount));
-            return stats.get(type);
-        } else {
-            return 0;
-        }
-    }
-    
     public void setStat(MapleStat type, short amount) {
         stats.put(type, amount);
-        updateStats = true;
     }
     
     public float getBDM() {
@@ -162,6 +124,8 @@ public class PlayerStats {
         if (watkbuff != null) {
             addLocalStat(EquipStat.WATK, watkbuff);
         }
+        
+        MapleJob job = MapleJob.getById(getStat(MapleStat.JOB));
         if (job == MapleJob.BOWMAN) {
             Skill expert = null;
             if (job == MapleJob.MARKSMAN) {
@@ -227,17 +191,17 @@ public class PlayerStats {
     }
     
     public void changeJob(MapleJob newJob) {
-        job = newJob;
+        stats.put(MapleStat.JOB, (short) newJob.getId());
         
         addToStat(MapleStat.AVAILABLESP, (short) 1);
         
-        if (job.getId() % 10 == 2)
+        if (newJob.getId() % 10 == 2)
             addToStat(MapleStat.AVAILABLESP, (short) 2);
         
-        if (job.getId() % 10 > 1)
+        if (newJob.getId() % 10 > 1)
             addToStat(MapleStat.AVAILABLEAP, (short) 5);
         
-        switch (job.getBaseJob()) { //not gms-like, who the fk cares
+        switch (newJob.getBaseJob()) { //not gms-like, who the fk cares
             case WARRIOR: 
                 addToStat(MapleStat.MAXHP, (short) Randomizer.rand(200, 250));
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(20, 25));
@@ -258,116 +222,62 @@ public class PlayerStats {
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(50, 100));
                 break;
         }
-        updateStats = true;
     }
     
-    public int getAbilityLines() {
-        return lines.size();
-    }
-    
-    public void addLine(short line) {
-        lines.add( new AbilityLine(line));
-    }
-    
-    public void setRank(short rank) {
-        this.rank = Rank.values()[rank];
-    }
-    
-    private void clearTempStats() {
-        if (addedStats)
-            return;
+    public void levelUp(int impMaxHp, int impMaxMp) {
+        addToStat(MapleStat.LEVEL, (short) 1);
         
-        MapleStat newtype;
-        for (Map.Entry<AbilityStat, Short> entry : tempstats.entrySet()) {
-            switch (entry.getKey()) {
-                case BDM: bossdamage = (bossdamage - ((float) entry.getValue())/100); return;
-                case HP: newtype = MapleStat.MAXHP; break;
-                case MP: newtype = MapleStat.MAXMP; break;
-                default: newtype = MapleStat.values()[entry.getKey().ordinal() + 5];
+        MapleJob job = MapleJob.getById(getStat(MapleStat.JOB));
+        if (job == MapleJob.BEGINNER) {
+            stats.put(MapleStat.AVAILABLEAP, (short) 0);
+            if (stats.get(MapleStat.LEVEL) < 6) {
+                addToStat(MapleStat.STR, (short) 5);
+            } else {
+                addToStat(MapleStat.STR, (short) 4);
+                addToStat(MapleStat.DEX, (short) 1);
             }
-            addToStat(newtype, -entry.getValue());
+        } else {
+            addToStat(MapleStat.AVAILABLEAP, (short) 5);
         }
-        addedStats = true;
-    }
-    
-    private void addTempStats() {
-        if (!addedStats)
-            return;
         
-        MapleStat newtype;
-        for (Map.Entry<AbilityLine.AbilityStat, Short> entry : tempstats.entrySet()) {
-            switch (entry.getKey()) {
-                case BDM: bossdamage = (bossdamage + ((float) entry.getValue())/100); return;
-                case HP: newtype = MapleStat.MAXHP; break;
-                case MP: newtype = MapleStat.MAXMP; break;
-                default: newtype = MapleStat.values()[entry.getKey().ordinal() + 5];
-            }
-            addToStat(newtype, entry.getValue());
+        switch (job.getBaseJob()) {
+            case BEGINNER:
+                addToStat(MapleStat.MAXHP, (short) Randomizer.rand(12, 16));
+                addToStat(MapleStat.MAXMP, (short) Randomizer.rand(10, 12));
+                break;
+            case WARRIOR:
+                addToStat(MapleStat.MAXHP, (short) Randomizer.rand(24 + (impMaxHp * 4), 28 + (impMaxHp * 4)));
+                addToStat(MapleStat.MAXMP, (short) Randomizer.rand(4, 6));
+                break;
+            case MAGICIAN:
+                addToStat(MapleStat.MAXHP, (short) Randomizer.rand(10, 14));
+                addToStat(MapleStat.MAXMP, (short) Randomizer.rand(22 + (impMaxMp * 2), 24 + (impMaxMp * 2)));
+                break;
+            case THIEF:
+            case BOWMAN:
+                addToStat(MapleStat.MAXHP, (short) Randomizer.rand(20, 24));
+                addToStat(MapleStat.MAXMP, (short) Randomizer.rand(14, 16));
+                break;
+            case PIRATE:
+                addToStat(MapleStat.MAXHP, (short) Randomizer.rand(22 + (impMaxHp * 3), 28 + (impMaxHp * 3)));
+                addToStat(MapleStat.MAXMP, (short) Randomizer.rand(18, 23));
+                break;
         }
-        addedStats = false;
-    }
-    
-    public void resetStats(MapleCharacter chr, boolean add) {
-        clearTempStats();
-        tempstats.clear();
-        if (add) {
-            for (AbilityLine line : lines) {
-                float value = (float) line.getValue(rank.getValue());
-                AbilityStat effect = line.getEffect();
-                short tmp = 0;
-                switch (effect) {
-                    case HP: tmp += (value / 100) * chr.getStat(MapleStat.MAXHP); break;
-                    case MP: tmp += (value / 100) * chr.getStat(MapleStat.MAXMP); break;
-                    case BDM: tmp += (int) value; break;
-                    default: tmp += (value / 100) * chr.getStat(MapleStat.values()[effect.ordinal() + 5]);
-                }
-                if (tempstats.containsKey(effect))
-                    tempstats.put(effect, (short) (tmp + tempstats.get(effect)));
-                else
-                    tempstats.put(effect, tmp);
-            }
-            addTempStats();
+        addToStat(MapleStat.MAXMP, (short) (getLocal(EquipStat.INT) / 10));
+        
+        if (job.getId() % 1000 > 0) {
+            addToStat(MapleStat.AVAILABLESP, (short) 3);
         }
-        updateStats = true;
     }
     
-    public void resetAbility() {
-        rank = Rank.values()[(lines.isEmpty() || rank == Rank.NULL)?1:(rank.equals(Rank.GODLY))?5:(rank.getValue())+Randomizer.nextInt(51)/50];
-        for (int i = 0; i < lines.size(); i++) {
-            lines.add(new AbilityLine());
-            lines.removeFirst();
-        }
-        if ((lines.size() < 3 && Randomizer.nextInt(51) == 0) || lines.isEmpty()) //Lines increase or first potential
-            lines.add(new AbilityLine());
-    }
-    
-    public short getTempStat(AbilityLine.AbilityStat effect) {
-        return tempstats.containsKey(effect)?tempstats.get(effect):0;
-    }
-    
-    public String getAbilityName() {
-        return String.valueOf(rank).charAt(0) + String.valueOf(rank).toLowerCase().substring(1);
-    }
-    
-    public byte getAbilityRank() {
-        return rank.getValue();
-    }
-    
-    public AbilityLine getAbilityLine(byte line) {
-        return lines.get(line);
-    }
-    
-    public boolean updateStats() {
-        return updateStats;
-    }
-    
-    public void disableUpdate() {
-        updateStats = false;
+    public void fullHeal() {
+        stats.put(MapleStat.HP, getLocal(EquipStat.HP));
+        stats.put(MapleStat.HP, getLocal(EquipStat.MP));
     }
     
     public PreparedStatement getStatement(Connection con, int charid) throws SQLException {
-        PreparedStatement ps = con.prepareStatement("UPDATE characters SET level = ?, str = ?, dex = ?, luk = ?, `int` = ?, maxhp = ?, maxmp = ?, sp = ?, ap = ?, skincolor = ?, job = ?, hair = ?, face = ?, ability0 = ?, ability1 = ?, ability2 = ? WHERE id = ?");
-        ps.setShort(1, level);
+        PreparedStatement ps = con.prepareStatement("UPDATE characters SET level = ?, str = ?, dex = ?, luk = ?, `int` = ?, maxhp = ?, maxmp = ?, sp = ?, ap = ?, job = ? WHERE id = ?");
+        ps.setShort(1, getStat(MapleStat.LEVEL));
         ps.setShort(2, getStat(MapleStat.STR));
         ps.setShort(3, getStat(MapleStat.DEX));
         ps.setShort(4, getStat(MapleStat.LUK));
@@ -376,14 +286,8 @@ public class PlayerStats {
         ps.setShort(7, getStat(MapleStat.MAXMP));
         ps.setShort(8, getStat(MapleStat.AVAILABLESP));
         ps.setShort(9, getStat(MapleStat.AVAILABLEAP));
-        ps.setByte(10, (byte) skincolor.getId());
-        ps.setShort(11, (short) job.getId());
-        ps.setInt(12, hair);
-        ps.setShort(13, face);
-        ps.setShort(14, (short) (rank.getValue()*1000 + lines.get(0).getSuperior().ordinal()*100 + lines.get(0).getEffect().ordinal()));
-        ps.setShort(15, (short) (lines.get(1).getSuperior().ordinal()*100 + lines.get(1).getEffect().ordinal()));
-        ps.setShort(16, (short) (lines.get(2).getSuperior().ordinal()*100 + lines.get(2).getEffect().ordinal()));
-        ps.setInt(17, charid);
+        ps.setShort(10, getStat(MapleStat.JOB));
+        ps.setInt(11, charid);
         return ps;
     }
 }
