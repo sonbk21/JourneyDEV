@@ -25,7 +25,6 @@ import java.awt.Point;
 import java.io.File;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,8 +45,10 @@ public class MapleMapDataFactory {
 
     private final MapleDataProvider source;
     private final MapleData nameData;
+    
     private final Map<String, Integer> mapNames = new HashMap<>();
-    private static final Map<Integer, MapleMapData> maps = new HashMap<>();
+    private static final Map<Integer, MapleMapData> mapdata = new HashMap<>();
+    
     private static MapleMapDataFactory instance;
 
     public MapleMapDataFactory() {
@@ -62,7 +63,7 @@ public class MapleMapDataFactory {
         return instance;
     }
     
-    public void loadMapNames() { //New functions for searching a map by name. 
+    public void loadMapNames() {
         for (MapleData parents : nameData.getChildren()) {
             for (MapleData data : parents.getChildren()) {
                 String name = MapleDataTool.getString("mapName", data, "");
@@ -82,7 +83,7 @@ public class MapleMapDataFactory {
         for (String fullName : mapNames.keySet()) {
             String[] SplitNames = fullName.split(" ");
             matches = 0.0;
-            for (String SplitName : SplitNames) { //This shouldnt be to big I think
+            for (String SplitName : SplitNames) {
                 for (int k = 1; k < name.length; k++) {
                     if (SplitName.equalsIgnoreCase(name[k])) {
                         matches += 1;
@@ -97,23 +98,25 @@ public class MapleMapDataFactory {
         }
         
         return matchId;
-    } //End of modifications
+    }
 
     public MapleMapData getMapData(int mapid) {
-        Integer omapid = mapid;
-        MapleMapData map = maps.get(omapid);
-        if (map == null) {
+        if (mapdata.containsKey(mapid)) {
+            return mapdata.get(mapid);
+        } else  {
             synchronized (this) {
-                map = maps.get(omapid);
+                MapleMapData map = mapdata.get(mapid);
                 if (map != null) {
                     return map;
                 }
+                
                 String mapName = getMapName(mapid);
                 MapleData mapData = source.getData(mapName);
                 if (mapData == null)
                     return null;
+                
                 String link = MapleDataTool.getString(mapData.getChildByPath("info/link"), "");
-                if (!link.isEmpty()) { //nexon made hundreds of dojo maps so to reduce the size they added links.
+                if (!link.isEmpty()) {
                     mapName = getMapName(Integer.parseInt(link));
                     mapData = source.getData(mapName);
                 }
@@ -139,6 +142,7 @@ public class MapleMapDataFactory {
                 for (MapleData portal : mapData.getChildByPath("portal")) {
                     map.addPortal(portalFactory.makePortal(MapleDataTool.getInt(portal.getChildByPath("pt")), portal));
                 }
+                
                 MapleData timeMob = mapData.getChildByPath("info/timeMob");
                 if (timeMob != null) {
                     map.addTimeMob(MapleDataTool.getInt(timeMob.getChildByPath("id")), MapleDataTool.getString(timeMob.getChildByPath("message")));
@@ -181,7 +185,7 @@ public class MapleMapDataFactory {
                 
                 try { 
                     try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT * FROM playernpcs WHERE map = ?")) {
-                        ps.setInt(1, omapid);
+                        ps.setInt(1, mapid);
                         try (ResultSet rs = ps.executeQuery()) {
                             while (rs.next()) {
                                 map.addMapObject(new PlayerNPCs(rs));
@@ -224,14 +228,11 @@ public class MapleMapDataFactory {
                         map.addMapObject(myLife);
                     }
                 }
-                maps.put(omapid, map);
+                
+                mapdata.put(mapid, map);
+                return map;
             }
         }
-        return map;
-    }
-
-    public boolean isMapLoaded(int mapId) {
-        return maps.containsKey(mapId);
     }
 
     private String getMapName(int mapid) {
@@ -282,13 +283,9 @@ public class MapleMapDataFactory {
         int x = MapleDataTool.getInt(reactor.getChildByPath("x"));
         int y = MapleDataTool.getInt(reactor.getChildByPath("y"));
         myReactor.setPosition(new Point(x, y));
-        myReactor.setDelay(1000);
+        myReactor.setDelay(500);
         myReactor.setState((byte) 0);
         myReactor.setName(MapleDataTool.getString(reactor.getChildByPath("viewName"), ""));
         return myReactor;
-    }
-
-    public Map<Integer, MapleMapData> getMapData() {
-        return Collections.unmodifiableMap(maps);
     }
 }
