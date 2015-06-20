@@ -28,6 +28,7 @@ import server.life.AreaBossData;
 import server.life.AreaBossFactory;
 import server.life.MapleLifeFactory;
 import server.life.MapleMonster;
+import server.life.MapleNPC;
 
 public class MapleMapFactory {
 
@@ -85,8 +86,8 @@ public class MapleMapFactory {
                     } else if (mmo instanceof MapleHarvestable) {
                         MapleHarvestable harvestable = (MapleHarvestable) mmo;
                         map.spawnReactor(harvestable);
-                    } else {
-                        map.addMapObject(mmo);
+                    } else if (mmo instanceof MapleNPC) {
+                        map.incrementRunningOid();
                     }
                 });
                 
