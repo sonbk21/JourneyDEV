@@ -40,6 +40,7 @@ import server.life.AbstractLoadedMapleLife;
 import server.life.MapleLifeFactory;
 import server.life.MapleMonster;
 import tools.DatabaseConnection;
+import tools.Pair;
 import tools.StringUtil;
 
 public class MapleMapDataFactory {
@@ -92,33 +93,12 @@ public class MapleMapDataFactory {
                     mapData = source.getData(mapName);
                 }
                 
-                map = new MapleMapData(mapid, MapleDataTool.getInt("info/returnMap", mapData),
-                                        MapleDataTool.getInt(mapData.getChildByPath("info/forcedReturn"), 999999999),
-                                        (mapData.getChildByPath("info/mobRate") != null)? (Float) mapData.getChildByPath("info/mobRate").getData() : 0,
-                                        MapleDataTool.getString(mapData.getChildByPath("info/onFirstUserEnter"), String.valueOf(mapid)),
-                                        MapleDataTool.getString(mapData.getChildByPath("info/onUserEnter"), String.valueOf(mapid)), 
-                                        MapleDataTool.getIntConvert("info/fieldType", mapData, 0),
-                                        MapleDataTool.getInt(mapData.getChildByPath("info/fieldLimit"), 0),
-                                        MapleDataTool.getIntConvert("fixedMobCapacity", mapData.getChildByPath("info"), 500),
-                                        (short) MapleDataTool.getInt(mapData.getChildByPath("info/createMobInterval"), 5000),
-                                        mapData.getChildByPath("clock") != null,
-                                        mapData.getChildByPath("everlast") != null,
-                                        mapData.getChildByPath("town") != null,
-                                        mapData.getChildByPath("shipObj") != null,
-                                        MapleDataTool.getIntConvert("decHP", mapData, 0),
-                                        MapleDataTool.getIntConvert("protectItem", mapData, 0),
-                                        MapleDataTool.getIntConvert("timeLimit", mapData.getChildByPath("info"), -1));
-                
-                PortalFactory portalFactory = new PortalFactory();
-                for (MapleData portal : mapData.getChildByPath("portal")) {
-                    map.addPortal(portalFactory.makePortal(MapleDataTool.getInt(portal.getChildByPath("pt")), portal));
-                }
-                
+                Pair<Integer, String> timedMob = null;
                 MapleData timeMob = mapData.getChildByPath("info/timeMob");
                 if (timeMob != null) {
-                    map.addTimeMob(MapleDataTool.getInt(timeMob.getChildByPath("id")), MapleDataTool.getString(timeMob.getChildByPath("message")));
+                    timedMob = new Pair(MapleDataTool.getInt(timeMob.getChildByPath("id")), MapleDataTool.getString(timeMob.getChildByPath("message")));
                 }
-
+                
                 List<MapleFoothold> allFootholds = new LinkedList<>();
                 Point lBound = new Point();
                 Point uBound = new Point();
@@ -150,7 +130,29 @@ public class MapleMapDataFactory {
                 }
                 MapleFootholdTree fTree = new MapleFootholdTree(lBound, uBound);
                 allFootholds.stream().forEach((fh) -> { fTree.insert(fh); });
-                map.setFootholds(fTree);
+                
+                map = new MapleMapData(mapid, MapleDataTool.getInt("info/returnMap", mapData),
+                                        MapleDataTool.getInt(mapData.getChildByPath("info/forcedReturn"), 999999999),
+                                        (mapData.getChildByPath("info/mobRate") != null)? (Float) mapData.getChildByPath("info/mobRate").getData() : 0,
+                                        MapleDataTool.getString(mapData.getChildByPath("info/onFirstUserEnter"), String.valueOf(mapid)),
+                                        MapleDataTool.getString(mapData.getChildByPath("info/onUserEnter"), String.valueOf(mapid)), 
+                                        MapleDataTool.getIntConvert("info/fieldType", mapData, 0),
+                                        MapleDataTool.getInt(mapData.getChildByPath("info/fieldLimit"), 0),
+                                        MapleDataTool.getIntConvert("fixedMobCapacity", mapData.getChildByPath("info"), 500),
+                                        (short) MapleDataTool.getInt(mapData.getChildByPath("info/createMobInterval"), 5000),
+                                        mapData.getChildByPath("clock") != null,
+                                        mapData.getChildByPath("everlast") != null,
+                                        mapData.getChildByPath("town") != null,
+                                        mapData.getChildByPath("shipObj") != null,
+                                        MapleDataTool.getIntConvert("decHP", mapData, 0),
+                                        MapleDataTool.getIntConvert("protectItem", mapData, 0),
+                                        MapleDataTool.getIntConvert("timeLimit", mapData.getChildByPath("info"), -1),
+                                        timedMob, fTree);
+                
+                PortalFactory portalFactory = new PortalFactory();
+                for (MapleData portal : mapData.getChildByPath("portal")) {
+                    map.addPortal(portalFactory.makePortal(MapleDataTool.getInt(portal.getChildByPath("pt")), portal));
+                }
                 
                 try { 
                     try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT * FROM playernpcs WHERE map = ?")) {
@@ -164,21 +166,6 @@ public class MapleMapDataFactory {
                         ps.close();
                     }
                 } catch (Exception e) {
-                }
-                
-                if (mapData.getChildByPath("reactor") != null) {
-                    for (MapleData reactor : mapData.getChildByPath("reactor")) {
-                        String id = MapleDataTool.getString(reactor.getChildByPath("id"));
-                        if (id != null) {
-                            if (ProfessionFactory.getInstance().isHarvestable(Integer.valueOf(id))) {
-                                MapleHarvestable newHarvestable = loadHarvestable(reactor, id);
-                                map.addMapObject(newHarvestable);
-                            } else {
-                                MapleReactor newReactor = loadReactor(reactor, id);
-                                map.addMapObject(newReactor);
-                            }
-                        }
-                    }
                 }
                 
                 for (MapleData life : mapData.getChildByPath("life")) {
@@ -195,6 +182,21 @@ public class MapleMapDataFactory {
                         map.addMapObject(monster);
                     } else {
                         map.addMapObject(myLife);
+                    }
+                }
+                
+                if (mapData.getChildByPath("reactor") != null) {
+                    for (MapleData reactor : mapData.getChildByPath("reactor")) {
+                        String id = MapleDataTool.getString(reactor.getChildByPath("id"));
+                        if (id != null) {
+                            if (ProfessionFactory.getInstance().isHarvestable(Integer.valueOf(id))) {
+                                MapleHarvestable newHarvestable = loadHarvestable(reactor, id);
+                                map.addMapObject(newHarvestable);
+                            } else {
+                                MapleReactor newReactor = loadReactor(reactor, id);
+                                map.addMapObject(newReactor);
+                            }
+                        }
                     }
                 }
                 
