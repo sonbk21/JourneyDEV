@@ -41,16 +41,11 @@ public class MapleMapFactory {
     }
 
     public MapleMap getMap(int mapid) {
-        MapleMap map = maps.get(mapid);
-        
-        if (map == null) {
+        if (maps.containsKey(mapid)) {
+            return maps.get(mapid);
+        } else {
             synchronized (this) {
-                map = maps.get(mapid);
-                if (map != null) {
-                    return map;
-                }
-                
-                map = new MapleMap(mapid, world, channel);
+                final MapleMap map = new MapleMap(mapid, world, channel);
                 
                 MapleMapData data = MapleMapDataFactory.getInstance().getMapData(mapid);
                 map.setEverlast(data.getEverlast());
@@ -69,13 +64,14 @@ public class MapleMapFactory {
                 map.setOnFirstUserEnter(data.getUserEnterF());
                 map.setOnUserEnter(data.getUserEnter());
                 map.setTimeLimit(data.getTimeLimit());
+                map.addTimeMob(data.getTimeMob());
                 
-                if (AreaBossFactory.hasBoss(map.getId())) { //add areabosses
+                if (AreaBossFactory.hasBoss(map.getId())) {
                     AreaBossData ab = AreaBossFactory.getBossData(map.getId());
                     map.addBossSpawn(MapleLifeFactory.getMonster(ab.getId()), ab.getPosition(), ab.getIntervall(), ab.getMsg());
                 }
                 
-                for (MapleMapObject mmo : data.getMapObjects()) {
+                data.getMapObjects().stream().forEach((mmo) -> {
                     if (mmo instanceof MapleMonster) {
                         MapleMonster mob = (MapleMonster) mmo;
                         if (mob.getMobtime() == -1) {
@@ -92,12 +88,12 @@ public class MapleMapFactory {
                     } else {
                         map.addMapObject(mmo);
                     }
-                }
+                });
                 
                 maps.put(mapid, map);
+                return map;
             }
         }
-        return map;
     }
 
     public boolean isMapLoaded(int mapId) {
