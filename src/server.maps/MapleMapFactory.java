@@ -24,6 +24,7 @@ package server.maps;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import server.life.AreaBossData;
 import server.life.AreaBossFactory;
 import server.life.MapleLifeFactory;
@@ -35,17 +36,23 @@ public class MapleMapFactory {
     private final Map<Integer, MapleMap> maps = new HashMap<>();
     private final byte world;
     private final byte channel;
+    private final ReentrantLock mapLoadLock;
 
     public MapleMapFactory(byte world, byte channel) {
         this.world = world;
         this.channel = channel;
+        mapLoadLock = new ReentrantLock(false);
     }
 
     public MapleMap getMap(int mapid) {
         if (maps.containsKey(mapid)) {
             return maps.get(mapid);
         } else {
-            synchronized (this) {
+            mapLoadLock.lock();
+            try {
+                if (maps.containsKey(mapid)) {
+                    return maps.get(mapid);
+                }
                 final MapleMap map = new MapleMap(mapid, world, channel);
                 
                 MapleMapData data = MapleMapDataFactory.getInstance().getMapData(mapid);
@@ -93,6 +100,8 @@ public class MapleMapFactory {
                 
                 maps.put(mapid, map);
                 return map;
+            } finally {
+                mapLoadLock.unlock();
             }
         }
     }
