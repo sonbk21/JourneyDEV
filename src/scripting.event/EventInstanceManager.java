@@ -23,7 +23,6 @@ package scripting.event;
 
 import client.MapleCharacter;
 import java.awt.Point;
-import java.io.File;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -36,8 +35,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.script.ScriptException;
 import net.server.world.MapleParty;
-import net.server.world.MaplePartyCharacter;
-import provider.MapleDataProviderFactory;
 import scripting.event.RecordsManager.RecordEvent;
 import server.MapleInventoryManipulator;
 import server.TimerManager;
@@ -67,7 +64,7 @@ public class EventInstanceManager {
     public EventInstanceManager(EventManager em, String name) {
         this.em = em;
         this.name = name;
-        mapFactory = new MapleMapFactory(MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Map.wz")), MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz")), em.getChannelServer().getId(), (byte) 1);//Fk this
+        mapFactory = new MapleMapFactory(em.getChannelServer().getId(), (byte) 1);//Fk this <- yup
     }
 
     public EventManager getEm() {
@@ -97,11 +94,8 @@ public class EventInstanceManager {
         return eventTime - (System.currentTimeMillis() - timeStarted);
     }
 
-    public void registerParty(MapleParty party, MapleMap map) {
-        for (MaplePartyCharacter pc : party.getMembers()) {
-            MapleCharacter c = map.getCharacterById(pc.getId());
-            registerPlayer(c);
-        }
+    public void registerParty(MapleParty party, MapleMap mapleMap) {
+        party.getMembers().stream().map((pc) -> mapleMap.getCharacterById(pc.getId())).forEach((c) -> registerPlayer(c));
     }
 
     public void unregisterPlayer(MapleCharacter chr) {
@@ -127,24 +121,30 @@ public class EventInstanceManager {
     
     public void broadcastClock(int timelimit) {
         List <MapleCharacter> pl = getPlayers();
-        for (MapleCharacter chr : pl) {
+        pl.stream().forEach((chr) -> {
             chr.getClient().getSession().write(MaplePacketCreator.getClock(timelimit));
-        }
+        });
     }
     
     public void broadcastClock(MapleCharacter chr, int timelimit) {
         chr.getClient().getSession().write(MaplePacketCreator.getClock(timelimit));
     }
     
+    public void broadcastClock(final MapleCharacter chr, final int timelimit, int delay) {
+        TimerManager.getInstance().schedule(() -> {
+            chr.getClient().getSession().write(MaplePacketCreator.getClock(timelimit));
+        }, delay);
+    }
+    
     public int setRecord(int time) {
-        List<Pair<String, Integer>> records = em.getWorldRecords();
-        boolean loaded = true;
         RecordEvent event = RecordEvent.valueOf(em.getName().toUpperCase());
+        List<Pair<String, Integer>> records = em.getWorldRecordsManager().loadRecords(event);
         
-        if (records == null)
-            loaded = em.getWorldRecordsManager().loadRecords(event);
+        if (records == null) {
+            return 0;
+        }
         
-        if (loaded) {
+        if (!records.isEmpty()) {
             for (Pair<String, Integer> ere : records) {
                 if (time < ere.getRight()) {
                     if (em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, records.indexOf(ere)))
@@ -156,7 +156,7 @@ public class EventInstanceManager {
             if (records.size() > 14)
                 return 0;
             em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, records.size());
-            return records.size() + 1;
+            return records.size();
         } else {
             em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, 0);
             return 1;
@@ -165,10 +165,10 @@ public class EventInstanceManager {
     
     public String getPartyNames() {
         StringBuilder names = new StringBuilder();
-        for (MapleCharacter member : getPlayers()) {
-            names.append(member.getName());
+        getPlayers().stream().forEach((chr) -> {
+            names.append(chr.getName());
             names.append(", ");
-        }
+        });
         return names.substring(0, names.length()-2);
     }
     
@@ -185,16 +185,27 @@ public class EventInstanceManager {
     
     public int getDeathCount(MapleCharacter chr) {
         return deathcountholder.containsKey(chr.getName())?deathcountholder.get(chr.getName()):0;
-    } //End of modification
+    } 
+    
+    public void addDropToMonster(MapleMonster mob, int itemid, int max) {
+        if (mobs.contains(mob)) {
+            mobs.remove(mob);
+            mob.addCustomDrop(itemid, max);
+            mob.setEventInstance(this);
+            mobs.add(mob);
+        } else {
+            mob.addCustomDrop(itemid, max);
+        }
+    }//End of modification
 
     public void registerMonster(MapleMonster mob) {
-        mobs.add(mob);
         mob.setEventInstance(this);
+        mobs.add(mob);
     }
 
     public void unregisterMonster(MapleMonster mob) {
-        mobs.remove(mob);
         mob.setEventInstance(null);
+        mobs.remove(mob);
         if (mobs.isEmpty()) {
             try {
                 em.getIv().invokeFunction("allMonstersDead", this);
@@ -243,7 +254,7 @@ public class EventInstanceManager {
     public void monsterKilled(MapleCharacter chr, MapleMonster mob) {
         try {
             Integer kc = killCount.get(chr);
-            int inc = ((Double) em.getIv().invokeFunction("monsterValue", this, mob.getId())).intValue();
+            int inc = (Integer) em.getIv().invokeFunction("monsterValue", this, mob.getId());
             if (kc == null) {
                 kc = inc;
             } else {
@@ -283,14 +294,11 @@ public class EventInstanceManager {
     }
 
     public void schedule(final String methodName, long delay) {
-        TimerManager.getInstance().schedule(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    em.getIv().invokeFunction(methodName, EventInstanceManager.this);
-                } catch (ScriptException | NoSuchMethodException ex) {
-                    Logger.getLogger(EventInstanceManager.class.getName()).log(Level.SEVERE, null, ex);
-                }
+        TimerManager.getInstance().schedule(() -> {
+            try {
+                em.getIv().invokeFunction(methodName, EventInstanceManager.this);
+            } catch (ScriptException | NoSuchMethodException ex) {
+                Logger.getLogger(EventInstanceManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }, delay);
     }
