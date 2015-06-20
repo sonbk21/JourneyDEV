@@ -68,16 +68,18 @@ public class RecordsManager {
             try {
                 Connection con = DatabaseConnection.getConnection();
                 PreparedStatement ps;
-                try {
-                    ps = con.prepareStatement("DELETE FROM records WHERE world = ? AND event = ? AND names = ? AND time = ?");
-                    ps.setInt(1, world);
-                    ps.setInt(2, event.ordinal());
-                    ps.setString(3, toDelete.getLeft());
-                    ps.setInt(4, toDelete.getRight());
-                    ps.execute();
-                    ps.close();
-                } catch (NullPointerException | SQLException ex) {
-                    Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
+                if (toDelete != null) {
+                    try {
+                        ps = con.prepareStatement("DELETE FROM records WHERE world = ? AND event = ? AND names = ? AND time = ?");
+                        ps.setInt(1, world);
+                        ps.setInt(2, event.ordinal());
+                        ps.setString(3, toDelete.getLeft());
+                        ps.setInt(4, toDelete.getRight());
+                        ps.execute();
+                        ps.close();
+                    } catch (SQLException ex) {
+                        Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
                 ps = con.prepareStatement("INSERT INTO records (`world`,`event`,`time`,`charnames`) VALUES (?, ?, ?, ?)");
                 ps.setInt(1, world);
