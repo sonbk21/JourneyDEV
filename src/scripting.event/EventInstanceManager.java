@@ -147,8 +147,9 @@ public class EventInstanceManager {
         if (!records.isEmpty()) {
             for (Pair<String, Integer> ere : records) {
                 if (time < ere.getRight()) {
-                    if (em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, records.indexOf(ere)))
-                        return records.indexOf(ere) + 1;
+                    int rank = records.indexOf(ere);
+                    if (em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, rank))
+                        return rank + 1;
                     else
                         return 0;
                 }
