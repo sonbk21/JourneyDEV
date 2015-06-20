@@ -36,8 +36,8 @@ public class Professions {
     }
     
     public enum ProfessionLevel {
-        NEWBIE((short) 0, (byte) 10), APPRENTICE((short) 100, (byte) 30), ASSISTANT((short) 250, (byte) 50), FOREMAN((short) 500, (byte) 70), 
-        EXPERT((short) 1200, (byte) 100), MASTER((short) 2500, (byte) 120);
+        NEWBIE((short) 0, (byte) 10), APPRENTICE((short) 500, (byte) 30), ASSISTANT((short) 1200, (byte) 50), FOREMAN((short) 2500, (byte) 70), 
+        EXPERT((short) 6000, (byte) 100), MASTER((short) 18000, (byte) 120);
         private final short threshold;
         private final byte levelreq;
         
@@ -75,7 +75,7 @@ public class Professions {
             this.exp = exp;
         }
         
-        public boolean gainExp(int gain, short chrlevel) {
+        public boolean gainExp(int gain) {
             if (level == ProfessionLevel.MASTER)
                 return false;
             
