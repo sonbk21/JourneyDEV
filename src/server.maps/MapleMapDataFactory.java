@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import provider.MapleData;
 import provider.MapleDataProvider;
 import provider.MapleDataProviderFactory;
@@ -50,10 +51,12 @@ public class MapleMapDataFactory {
     private static final Map<Integer, MapleMapData> mapdata = new HashMap<>();
     
     private static MapleMapDataFactory instance;
+    private final ReentrantLock dataLoadLock;
 
-    public MapleMapDataFactory() {
+    private MapleMapDataFactory() {
         this.source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Map.wz")); 
         this.nameData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz")).getData("Map.img");
+        dataLoadLock = new ReentrantLock(false);
     }
     
     public static MapleMapDataFactory getInstance() {
@@ -63,48 +66,16 @@ public class MapleMapDataFactory {
         return instance;
     }
     
-    public void loadMapNames() {
-        for (MapleData parents : nameData.getChildren()) {
-            for (MapleData data : parents.getChildren()) {
-                String name = MapleDataTool.getString("mapName", data, "");
-                if (name != null)
-                    mapNames.put(name, Integer.valueOf(data.getName()));
-            }
-        }
-    }
-    
-    public int searchMapByName(String[] name) {
-        if (mapNames.containsKey(StringUtil.joinStringFrom(name, 1)))
-            return getMapData(mapNames.get(StringUtil.joinStringFrom(name, 1))).getId();
-        
-        int matchId = 0;
-        Double matches;
-        Double prevMatches = 0.0;
-        for (String fullName : mapNames.keySet()) {
-            String[] SplitNames = fullName.split(" ");
-            matches = 0.0;
-            for (String SplitName : SplitNames) {
-                for (int k = 1; k < name.length; k++) {
-                    if (SplitName.equalsIgnoreCase(name[k])) {
-                        matches += 1;
-                    }
-                }
-            }
-            matches /= (double) SplitNames.length;
-            if (matches > prevMatches) {
-                prevMatches = matches;
-                matchId = mapNames.get(fullName);
-            }
-        }
-        
-        return matchId;
+    public boolean isMapDataLoaded(int mapid) {
+        return mapdata.containsKey(mapid);
     }
 
     public MapleMapData getMapData(int mapid) {
         if (mapdata.containsKey(mapid)) {
             return mapdata.get(mapid);
         } else  {
-            synchronized (this) {
+            dataLoadLock.lock();
+            try {
                 MapleMapData map = mapdata.get(mapid);
                 if (map != null) {
                     return map;
@@ -178,9 +149,7 @@ public class MapleMapDataFactory {
                     }
                 }
                 MapleFootholdTree fTree = new MapleFootholdTree(lBound, uBound);
-                for (MapleFoothold fh : allFootholds) {
-                    fTree.insert(fh);
-                }
+                allFootholds.stream().forEach((fh) -> { fTree.insert(fh); });
                 map.setFootholds(fTree);
                 
                 try { 
@@ -231,6 +200,8 @@ public class MapleMapDataFactory {
                 
                 mapdata.put(mapid, map);
                 return map;
+            } finally {
+                dataLoadLock.unlock();
             }
         }
     }
@@ -283,9 +254,46 @@ public class MapleMapDataFactory {
         int x = MapleDataTool.getInt(reactor.getChildByPath("x"));
         int y = MapleDataTool.getInt(reactor.getChildByPath("y"));
         myReactor.setPosition(new Point(x, y));
-        myReactor.setDelay(500);
+        myReactor.setDelay(10000);
         myReactor.setState((byte) 0);
         myReactor.setName(MapleDataTool.getString(reactor.getChildByPath("viewName"), ""));
         return myReactor;
+    }
+    
+    public void loadMapNames() {
+        for (MapleData parents : nameData.getChildren()) {
+            for (MapleData data : parents.getChildren()) {
+                String name = MapleDataTool.getString("mapName", data, "");
+                if (name != null)
+                    mapNames.put(name, Integer.valueOf(data.getName()));
+            }
+        }
+    }
+    
+    public int searchMapByName(String[] name) {
+        if (mapNames.containsKey(StringUtil.joinStringFrom(name, 1)))
+            return getMapData(mapNames.get(StringUtil.joinStringFrom(name, 1))).getId();
+        
+        int matchId = 0;
+        Double matches;
+        Double prevMatches = 0.0;
+        for (String fullName : mapNames.keySet()) {
+            String[] SplitNames = fullName.split(" ");
+            matches = 0.0;
+            for (String SplitName : SplitNames) {
+                for (int k = 1; k < name.length; k++) {
+                    if (SplitName.equalsIgnoreCase(name[k])) {
+                        matches += 1;
+                    }
+                }
+            }
+            matches /= (double) SplitNames.length;
+            if (matches > prevMatches) {
+                prevMatches = matches;
+                matchId = mapNames.get(fullName);
+            }
+        }
+        
+        return matchId;
     }
 }
