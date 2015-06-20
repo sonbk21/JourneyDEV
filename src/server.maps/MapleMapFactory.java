@@ -21,6 +21,7 @@
  */
 package server.maps;
 
+import java.awt.Point;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,27 +57,11 @@ public class MapleMapFactory {
                 final MapleMap map = new MapleMap(mapid, world, channel);
                 
                 MapleMapData data = MapleMapDataFactory.getInstance().getMapData(mapid);
-                map.setEverlast(data.getEverlast());
-                map.setBoat(data.getBoat());
-                map.setTown(data.getTown());
-                map.setClock(data.getClock());
-                map.setReturnMapId(data.getReturnMapId());
-                map.setMonsterRate(data.getMonsterRate());
-                map.setMobCapacity(data.getMobCapacity());
-                map.setMobInterval(data.getMobInterval());
-                map.setFieldLimit(data.getFieldLimit());
-                map.setFieldType(data.getFieldType());
-                map.setForcedReturnMap(data.getForcedReturnId());
-                map.setHPDec(data.getHpDec());
-                map.setHPDecProtect(data.getProtectItem());
-                map.setOnFirstUserEnter(data.getUserEnterF());
-                map.setOnUserEnter(data.getUserEnter());
                 map.setTimeLimit(data.getTimeLimit());
-                map.addTimeMob(data.getTimeMob());
                 
                 if (AreaBossFactory.hasBoss(map.getId())) {
                     AreaBossData ab = AreaBossFactory.getBossData(map.getId());
-                    map.addBossSpawn(MapleLifeFactory.getMonster(ab.getId()), ab.getPosition(), ab.getIntervall(), ab.getMsg());
+                    map.addBossSpawn(MapleLifeFactory.getMonster(ab.getId()), data.calcBossSpawnPosition(ab.getPosition()), ab.getIntervall(), ab.getMsg());
                 }
                 
                 data.getMapObjects().stream().forEach((mmo) -> {
@@ -85,7 +70,7 @@ public class MapleMapFactory {
                         if (mob.getMobtime() == -1) {
                             map.spawnMonster(mob);
                         } else {
-                            map.addMonsterSpawn(mob, mob.getMobtime(), mob.getTeam());
+                            map.addMonsterSpawn(mob, mob.getMobtime(), mob.getTeam(), data.calcPointBelow(mob.getPosition()));
                         }
                     } else if (mmo instanceof MapleReactor) {
                         MapleReactor reactor = (MapleReactor) mmo;
