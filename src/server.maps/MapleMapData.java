@@ -6,6 +6,7 @@
 
 package server.maps;
 
+import java.awt.Point;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,12 +43,12 @@ public class MapleMapData {
     private int oid;
     
     private final Map<Byte, MaplePortal> portals = new HashMap<>();
-    private Pair<Integer, String> timeMob;
+    private final Pair<Integer, String> timeMob;
     private final Map<Integer, MapleMapObject> mapobjects = new HashMap<>();
     
-    private MapleFootholdTree footholds = null;
+    private final MapleFootholdTree footholds;
     
-    public MapleMapData(int mapid, int returnMapId, int forcedReturnId,  float monsterRate, String onEnterF, String onEnter, int fieldType, int fieldLimit, int mobCapacity, short mobInterval, boolean clock, boolean town, boolean everlast, boolean boat, int decHp, int protectItem, int timeLimit) {
+    public MapleMapData(int mapid, int returnMapId, int forcedReturnId,  float monsterRate, String onEnterF, String onEnter, int fieldType, int fieldLimit, int mobCapacity, short mobInterval, boolean clock, boolean town, boolean everlast, boolean boat, int decHp, int protectItem, int timeLimit, Pair<Integer, String> timeMob, MapleFootholdTree footholds) {
         this.mapid = mapid;
         this.returnMapId = returnMapId;
         this.forcedReturnId = forcedReturnId;
@@ -65,6 +66,8 @@ public class MapleMapData {
         this.decHp = decHp;
         this.protectItem = protectItem;
         this.timeLimit = timeLimit;
+        this.timeMob = timeMob;
+        this.footholds = footholds;
     }
     
     public void addPortal(MaplePortal myPortal) {
@@ -94,16 +97,8 @@ public class MapleMapData {
         return portals;
     }
 
-    public void setFootholds(MapleFootholdTree footholds) {
-        this.footholds = footholds;
-    }
-
     public MapleFootholdTree getFootholds() {
         return footholds;
-    }
-    
-    public void addTimeMob(int id, String msg) {
-        timeMob = new Pair<>(id, msg);
     }
 
     public Pair<Integer, String> getTimeMob() {
@@ -188,5 +183,39 @@ public class MapleMapData {
     
     public MapleMapObject getObject(int oid) {
         return mapobjects.get(oid);
+    }
+    
+    public Point calcPointBelow(Point initial) {
+        MapleFoothold fh = footholds.findBelow(initial);
+        if (fh == null) {
+            return null;
+        }
+        int dropY = fh.getY1();
+        if (!fh.isWall() && fh.getY1() != fh.getY2()) {
+            double s1 = Math.abs(fh.getY2() - fh.getY1());
+            double s2 = Math.abs(fh.getX2() - fh.getX1());
+            double s5 = Math.cos(Math.atan(s2 / s1)) * (Math.abs(initial.x - fh.getX1()) / Math.cos(Math.atan(s1 / s2)));
+            if (fh.getY2() < fh.getY1()) {
+                dropY = fh.getY1() - (int) s5;
+            } else {
+                dropY = fh.getY1() + (int) s5;
+            }
+        }
+        return new Point(initial.x, dropY);
+    }
+    
+    public Point[] calcBossSpawnPosition(Point[] initial) {
+        Stack<Point> newPoints = new Stack<>();
+        for (Point initial1 : initial) {
+            Point newpos = calcPointBelow(initial1);
+            if (newpos != null)
+                newPoints.add(newpos);
+        }
+        final byte size = (byte) newPoints.size();
+        Point[] newPositions = new Point[size];
+        for (byte i = 0; i < size; i++) {
+            newPositions[i] = newPoints.pop();
+        }
+        return newPositions;
     }
 }
