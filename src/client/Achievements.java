@@ -8,13 +8,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
+import java.util.EnumMap;
 import java.util.Map;
 import tools.DatabaseConnection;
 
 public final class Achievements {
     
-    private final Map<Achievement, Integer> achievements = new LinkedHashMap<>();
+    private final EnumMap<Achievement, Integer> achievements = new EnumMap<>(Achievement.class);
     private int trophies = 0;
     
     public enum Achievement {
@@ -89,9 +89,9 @@ public final class Achievements {
         return Achievement.valueOf(abr).getText(false);
     }
     
-    public void loadAchievements(final int charid) throws SQLException {
-        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT name, progress FROM achievements WHERE charid = ?")) {
-            ps.setInt(1, charid);
+    public void loadAchievements(final int accid) {
+        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT name, progress FROM achievements WHERE accid = ?")) {
+            ps.setInt(1, accid);
             try (ResultSet rs = ps.executeQuery()) {
                 byte ord;
                 int progress;
@@ -104,20 +104,26 @@ public final class Achievements {
                     }
                     achievements.put(Achievement.values()[ord], progress);
                 }
+                rs.close();
             }
+            ps.close();
+        } catch (SQLException sqle) {
+            
         }
     }
 
-    public void saveAchievements(final int charid) {
+    public void saveAchievements(final int accid) {
         if (achievements.isEmpty()) {
             return;
         }
+        
         try {
             Connection con = DatabaseConnection.getConnection();
-            PreparedStatement ps = con.prepareStatement("DELETE FROM achievements WHERE charid = ?");
-            ps.setInt(1, charid);
+            PreparedStatement ps = con.prepareStatement("DELETE FROM achievements WHERE accid = ?");
+            ps.setInt(1, accid);
             ps.execute();
             ps.close();
+            
             boolean first = true;
             StringBuilder query = new StringBuilder();
             for (Map.Entry<Achievement, Integer> all : achievements.entrySet()) {
@@ -127,15 +133,16 @@ public final class Achievements {
                 } else {
                     query.append(",(");
                 }
-                query.append(charid);
+                query.append(accid);
                 query.append(", ");
                 query.append(all.getKey().ordinal());
                 query.append(", ");
                 query.append(all.getValue());
                 query.append(")");
             }
-            query.append(",(").append(charid).append(", -1, ").append(trophies).append(")");
+            query.append(",(").append(accid).append(", -1, ").append(trophies).append(")");
             ps = con.prepareStatement(query.toString());
+            
             ps.execute();
             ps.close();
         } catch (SQLException e) {
@@ -145,7 +152,7 @@ public final class Achievements {
     
     public String getNpcText(boolean showProgress) {
         StringBuilder ret = new StringBuilder();
-        for (Map.Entry<Achievement, Integer> entry : achievements.entrySet()) {
+        achievements.entrySet().stream().forEach((entry) -> {
             if (!showProgress && entry.getValue() == -1) {
                 ret.append(entry.getKey().getText(true));
                 ret.append("\r\n");
@@ -154,9 +161,9 @@ public final class Achievements {
                 ret.append(entry.getKey().getText(false));
                 ret.append("\r\n  #rProgress: ");
                 ret.append(entry.getValue());
-                ret.append("#k");
+                ret.append("\r\n#k");
             }
-        }
+        });
         return ret.toString();
     }
 }
