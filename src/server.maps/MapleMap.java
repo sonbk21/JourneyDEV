@@ -108,7 +108,7 @@ public class MapleMap {
     private final ReadLock objectRLock;
     private final WriteLock objectWLock;
     
-    public final MapleMapData mapData;
+    private final MapleMapData mapData;
 
     public MapleMap(int mapid, int world, int channel) {
         this.mapid = mapid;
@@ -127,9 +127,7 @@ public class MapleMap {
     public void broadcastMessage(MapleCharacter source, final byte[] packet) {
         chrRLock.lock();
         try {
-            characters.stream().filter((chr) -> (chr != source)).forEach((chr) -> {
-                chr.getClient().announce(packet);
-            });
+            characters.stream().filter((chr) -> (chr != source)).forEach((chr) -> chr.getClient().announce(packet));
         } finally {
             chrRLock.unlock();
         }
@@ -138,9 +136,7 @@ public class MapleMap {
     public void broadcastGMMessage(MapleCharacter source, final byte[] packet) {
         chrRLock.lock();
         try {
-            characters.stream().filter((chr) -> (chr != source && (chr.getGMLevel() > source.getGMLevel()))).forEach((chr) -> {
-                chr.getClient().announce(packet);
-            });
+            characters.stream().filter((chr) -> (chr != source && (chr.getGMLevel() > source.getGMLevel()))).forEach((chr) -> chr.getClient().announce(packet));
         } finally {
             chrRLock.unlock();
         }
@@ -270,7 +266,7 @@ public class MapleMap {
     public void incrementRunningOid() {
         runningOid++;
         if (runningOid >= 30000) {
-            runningOid = 1000;//Lol, like there are monsters with the same oid NO
+            runningOid = 1000;
         }
         objectRLock.lock();
         try {
