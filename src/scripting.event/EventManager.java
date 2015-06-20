@@ -21,6 +21,7 @@
 */
 package scripting.event;
 
+import client.MapleCharacter;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -71,14 +72,11 @@ public class EventManager {
     }
 
     public void schedule(final String methodName, final EventInstanceManager eim, long delay) {
-        schedule = TimerManager.getInstance().schedule(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    iv.invokeFunction(methodName, eim);
-                } catch (ScriptException | NoSuchMethodException ex) {
-                    Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
-                }
+        schedule = TimerManager.getInstance().schedule(() -> {
+            try {
+                iv.invokeFunction(methodName, eim);
+            } catch (ScriptException | NoSuchMethodException ex) {
+                Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }, delay);
     }
@@ -88,14 +86,11 @@ public class EventManager {
     }
 
     public ScheduledFuture<?> scheduleAtTimestamp(final String methodName, long timestamp) {
-        return TimerManager.getInstance().scheduleAtTimestamp(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    iv.invokeFunction(methodName, (Object) null);
-                } catch (ScriptException | NoSuchMethodException ex) {
-                    Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
-                }
+        return TimerManager.getInstance().scheduleAtTimestamp(() -> {
+            try {
+                iv.invokeFunction(methodName, (Object) null);
+            } catch (ScriptException | NoSuchMethodException ex) {
+                Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }, timestamp);
     }
@@ -142,23 +137,20 @@ public class EventManager {
         return name;
     }
     
-    public List<Pair<String, Integer>> getWorldRecords() { //New functions, related to record system.
-        return cserv.getRecordsManager().getRecords(RecordEvent.valueOf(name.toUpperCase()));
-    }
-    
     public RecordsManager getWorldRecordsManager() {
         return cserv.getRecordsManager();
     }
     
     public String getNpcTextRankings() {
-        boolean loaded = true;
+        List<Pair<String, Integer>> records = cserv.getRecordsManager().loadRecords(RecordEvent.valueOf(name.toUpperCase()));
         
-        if (getWorldRecords() == null)
-            loaded = cserv.getRecordsManager().loadRecords(RecordEvent.valueOf(name.toUpperCase()));
-        if (loaded) {
-            System.out.println("loaded");
-            List<Pair<String, Integer>> records = getWorldRecords();
+        if (records == null) {
+            return "";
+        }
+        
+        if (!records.isEmpty()) {
             StringBuilder sb = new StringBuilder();
+            
             int i = 0;
             for (Pair<String, Integer> ere : records) {
                 sb.append(String.valueOf(i+1));
@@ -194,6 +186,16 @@ public class EventManager {
         try {
             iv.invokeFunction("setup", eim);
             eim.setProperty("leader", leader);
+        } catch (ScriptException | NoSuchMethodException ex) {
+            Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    //Third method, used for mine/herb patch
+    public void startInstance(MapleCharacter chr) {
+        try {
+            EventInstanceManager eim = (EventInstanceManager) (iv.invokeFunction("setup", (Object) null));
+            eim.registerPlayer(chr);
         } catch (ScriptException | NoSuchMethodException ex) {
             Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
         }
