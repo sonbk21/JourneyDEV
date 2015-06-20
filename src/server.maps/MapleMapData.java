@@ -6,15 +6,13 @@
 
 package server.maps;
 
-import java.awt.Rectangle;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+import java.util.stream.Stream;
 import server.MaplePortal;
+import server.life.MapleNPC;
 import tools.Pair;
 
 /**
@@ -41,9 +39,11 @@ public class MapleMapData {
     private final int protectItem;
     private final int timeLimit;
     
+    private int oid;
+    
     private final Map<Byte, MaplePortal> portals = new HashMap<>();
     private Pair<Integer, String> timeMob;
-    private final Stack<MapleMapObject> mapobjects = new Stack<>();
+    private final Map<Integer, MapleMapObject> mapobjects = new HashMap<>();
     
     private MapleFootholdTree footholds = null;
     
@@ -72,7 +72,9 @@ public class MapleMapData {
     }
     
     public void addMapObject(MapleMapObject mapobject) {
-        mapobjects.push(mapobject);
+        mapobject.setObjectId(oid);
+        mapobjects.put(oid, mapobject);
+        oid++;
     }
 
     public MaplePortal getPortal(String portalname) {
@@ -176,7 +178,15 @@ public class MapleMapData {
         return mapid;
     }
     
-    public Stack<MapleMapObject> getMapObjects() {
-        return mapobjects;
+    public Collection<MapleMapObject> getMapObjects() {
+        return mapobjects.values();
+    }
+    
+    public Stream<MapleMapObject> getNpcs() {
+        return mapobjects.values().stream().filter((mmo) -> mmo instanceof MapleNPC);
+    }
+    
+    public MapleMapObject getObject(int oid) {
+        return mapobjects.get(oid);
     }
 }
