@@ -45,7 +45,25 @@ public class RecordsManager {
         return records.containsKey(event)? Collections.unmodifiableList(records.get(event)) : null;
     }
     
-    public boolean updateRecords(RecordEvent event, String names, int time, int rank) {
+    public byte checkRecord(RecordEvent event, String names, int time) {
+        List<Pair<String, Integer>> entries = loadRecords(event);
+        
+        byte rank = 0;
+        if (!entries.isEmpty()) {
+            for (Pair<String, Integer> ere : entries) {
+                if (time < ere.getRight()) {
+                    rank = (byte) entries.indexOf(ere);
+                }
+            }
+            if (entries.size() > 14)
+                return 0;
+            if (rank == 0)
+                rank = (byte) entries.size();
+        }
+        return (byte) (updateRecords(event, names, time, rank) + 1);
+    }
+    
+    public byte updateRecords(RecordEvent event, String names, int time, byte rank) {
         recordsUpdateLock.lock();
         try {
             Pair<String, Integer> toDelete = null;
@@ -56,10 +74,11 @@ public class RecordsManager {
             } else {
                 List<Pair<String, Integer>> entries = records.get(event);
                 
-                if (entries.get(rank).getRight() < time) //Check if rank was taken while locked
-                    entries.add(rank + 1, new Pair<>(names, time));
-                else
-                    entries.add(rank, new Pair<>(names, time));
+                if (entries.get(rank).getRight() < time) { //Check if rank was taken while locked
+                    rank ++;
+                }
+                entries.add(rank, new Pair<>(names, time));
+                
                 if (records.get(event).size() > 15)
                     toDelete = entries.remove(15);
                 records.put(event, entries);
@@ -88,10 +107,10 @@ public class RecordsManager {
                 ps.setString(4, names);
                 ps.executeUpdate();
                 ps.close();
-                return true;
+                return rank;
             } catch (SQLException ex) {
                 Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
-                return false;
+                return -1;
             }
         } finally {
             recordsUpdateLock.unlock();
