@@ -137,31 +137,7 @@ public class EventInstanceManager {
     }
     
     public int setRecord(int time) {
-        RecordEvent event = RecordEvent.valueOf(em.getName().toUpperCase());
-        List<Pair<String, Integer>> records = em.getWorldRecordsManager().loadRecords(event);
-        
-        if (records == null) {
-            return 0;
-        }
-        
-        if (!records.isEmpty()) {
-            for (Pair<String, Integer> ere : records) {
-                if (time < ere.getRight()) {
-                    int rank = records.indexOf(ere);
-                    if (em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, rank))
-                        return rank + 1;
-                    else
-                        return 0;
-                }
-            }
-            if (records.size() > 14)
-                return 0;
-            em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, records.size());
-            return records.size();
-        } else {
-            em.getWorldRecordsManager().updateRecords(event, getPartyNames(), time, 0);
-            return 1;
-        }
+        return em.getWorldRecordsManager().checkRecord(RecordEvent.valueOf(em.getName().toUpperCase()), getPartyNames(), time);
     }
     
     public String getPartyNames() {
