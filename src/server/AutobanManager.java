@@ -20,6 +20,7 @@ package client;
 import java.io.File;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 import provider.MapleData;
 import provider.MapleDataProvider;
@@ -33,8 +34,9 @@ import provider.MapleDataTool;
 public class AutobanManager {
     
     private static final EnumMap<WZCheck, HashSet<Integer>> legitIDs = new EnumMap<>(WZCheck.class);
+    private static final ReentrantLock dataLoadLock = new ReentrantLock(false);
     
-    public static enum WZCheck {
+    public enum WZCheck {
         MAKECHARINFO;
     }
 
@@ -44,23 +46,36 @@ public class AutobanManager {
     }
     
     public static HashSet<Integer> getLegitIDs(WZCheck img) {
-        final HashSet<Integer> ret = new HashSet<>();
-        final MapleDataProvider source;
-        final MapleData data;
-        switch (img) {
-            case MAKECHARINFO:
-                source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Etc.wz"));
-                data = source.getData("MakeCharInfo.img").getChildByPath("Info");
-                data.getChildren().stream().forEach((gender) -> {
-                    gender.getChildren().stream().forEach((cat) -> {
-                        cat.getChildren().stream().forEach((id) -> {
-                            ret.add(MapleDataTool.getIntConvert(id));
+        if (legitIDs.containsKey(img)) {
+            return legitIDs.get(img);
+        } else {
+            dataLoadLock.lock();
+            try {
+                if (legitIDs.containsKey(img)) {
+                    return legitIDs.get(img);
+                }
+                
+                final HashSet<Integer> ret = new HashSet<>();
+                final MapleDataProvider source;
+                final MapleData data;
+                switch (img) {
+                    case MAKECHARINFO:
+                        source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Etc.wz"));
+                        data = source.getData("MakeCharInfo.img").getChildByPath("Info");
+                        data.getChildren().stream().forEach((gender) -> {
+                            gender.getChildren().stream().forEach((cat) -> {
+                                cat.getChildren().stream().forEach((id) -> {
+                                    ret.add(MapleDataTool.getIntConvert(id));
+                                });
+                            });
                         });
-                    });
-                });
-                break;
+                        break;
+                }
+                legitIDs.put(img, ret);
+                return ret;
+            } finally {
+                dataLoadLock.unlock();
+            }
         }
-        legitIDs.put(img, ret);
-        return ret;
     }
 }
