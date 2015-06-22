@@ -24,6 +24,7 @@ package server.maps;
 import client.properties.MapleBuffStat;
 import client.MapleCharacter;
 import client.MapleClient;
+import client.Professions.ProfessionType;
 import client.inventory.Equip;
 import client.inventory.Item;
 import client.inventory.MapleInventoryType;
@@ -56,8 +57,8 @@ import scripting.map.MapScriptManager;
 import server.MapleItemInformationProvider;
 import server.MaplePortal;
 import server.MapleStatEffect;
+import server.ProfessionFactory;
 import server.TimerManager;
-import server.events.gm.MapleOxQuiz;
 import server.life.AbstractSpawnPoint;
 import server.life.MapleLifeFactory;
 import server.life.MapleLifeFactory.selfDestruction;
@@ -92,7 +93,6 @@ public class MapleMap {
     private long timeLimit;
     private boolean docked;
     
-    private MapleOxQuiz ox;
     private ScheduledFuture<?> mapMonitor = null;
     private MapleMapEffect mapEffect = null;
     
@@ -100,7 +100,6 @@ public class MapleMap {
     
     private boolean respawns = true;
     private boolean dropsOn = true;
-    private boolean isOxQuiz = false;
     
     private final ReadLock chrRLock;
     private final WriteLock chrWLock;
@@ -642,13 +641,9 @@ public class MapleMap {
     }
 
     public void killMonster(int monsId) {
-        for (MapleMapObject mmo : getMapObjects()) {
-            if (mmo instanceof MapleMonster) {
-                if (((MapleMonster) mmo).getId() == monsId) {
-                    this.killMonster((MapleMonster) mmo, (MapleCharacter) getAllPlayer().get(0), false);
-                }
-            }
-        }
+        getMapObjects().stream().filter((mmo) -> (mmo instanceof MapleMonster)).filter((mmo) -> (((MapleMonster) mmo).getId() == monsId)).forEach((mmo) -> {
+            this.killMonster((MapleMonster) mmo, (MapleCharacter) getAllPlayer().get(0), false);
+        });
     }
 
     public void killAllMonsters() {
@@ -699,17 +694,9 @@ public class MapleMap {
         List<Point> points = new ArrayList<>();
         objectRLock.lock();
         try {
-            for (MapleMapObject o : mapObjects.values()) {
-                if (o.getType() == MapleMapObjectType.REACTOR) {
-                    points.add(((MapleReactor) o).getPosition());
-                }
-            }
+            mapObjects.values().stream().filter((o) -> (o.getType() == MapleMapObjectType.REACTOR)).forEach((o) -> points.add(((MapleReactor) o).getPosition()));
             Collections.shuffle(points);
-            for (MapleMapObject o : mapObjects.values()) {
-                if (o.getType() == MapleMapObjectType.REACTOR) {
-                    ((MapleReactor) o).setPosition(points.remove(points.size() - 1));
-                }
-            }
+            mapObjects.values().stream().filter((o) -> (o.getType() == MapleMapObjectType.REACTOR)).forEach((o) -> ((MapleReactor) o).setPosition(points.remove(points.size() - 1)));
         } finally {
             objectRLock.unlock();
         }
@@ -986,13 +973,7 @@ public class MapleMap {
         List<MapleCharacter> character = new LinkedList<>();
         chrRLock.lock();
         try {
-            for (MapleCharacter a : characters) {
-                if (chr.contains(a.getClient().getPlayer())) {
-                    if (box.contains(a.getPosition())) {
-                        character.add(a);
-                    }
-                }
-            }
+            characters.stream().filter((a) -> (chr.contains(a.getClient().getPlayer()))).filter((a) -> (box.contains(a.getPosition()))).forEach((a) -> character.add(a));
             return character;
         } finally {
             chrRLock.unlock();
@@ -1015,12 +996,10 @@ public class MapleMap {
         if (poison) {
             Runnable poisonTask = () -> {
                 List<MapleMapObject> affectedMonsters = getMapObjectsInBox(mist.getBox(), Collections.singletonList(MapleMapObjectType.MONSTER));
-                for (MapleMapObject mo : affectedMonsters) {
-                    if (mist.makeChanceResult()) {
-                        MonsterStatusEffect poisonEffect = new MonsterStatusEffect(Collections.singletonMap(MonsterStatus.POISON, 1), mist.getSourceSkill(), null, false);
-                        ((MapleMonster) mo).applyStatus(mist.getOwner(), poisonEffect, true, duration);
-                    }
-                }
+                affectedMonsters.stream().filter((mo) -> (mist.makeChanceResult())).forEach((mo) -> {
+                    MonsterStatusEffect poisonEffect = new MonsterStatusEffect(Collections.singletonMap(MonsterStatus.POISON, 1), mist.getSourceSkill(), null, false);
+                    ((MapleMonster) mo).applyStatus(mist.getOwner(), poisonEffect, true, duration);
+                });
             };
             poisonSchedule = tMan.register(poisonTask, 2000, 2500);
         } else {
@@ -1233,12 +1212,13 @@ public class MapleMap {
             broadcastGMMessage(MaplePacketCreator.removePlayerFromMap(chr.getId()));
         }
 
-        for (MapleMonster monster : chr.getControlledMonsters()) {
+        chr.getControlledMonsters().stream().forEach((monster) -> {
             monster.setController(null);
             monster.setControllerHasAggro(false);
             monster.setControllerKnowsAboutAggro(false);
             updateMonsterController(monster);
-        }
+        });
+        
         chr.leaveMap();
         chr.getTimer().cancelMapTimeLimitTask();
         chr.getSummons().values().stream().forEach((summon) -> {
@@ -1297,17 +1277,15 @@ public class MapleMap {
     private void broadcastMessage(MapleCharacter source, final byte[] packet, double rangeSq, Point rangedFrom) {
         chrRLock.lock();
         try {
-            for (MapleCharacter chr : characters) {
-                if (chr != source) {
-                    if (rangeSq < Double.POSITIVE_INFINITY) {
-                        if (rangedFrom.distanceSq(chr.getPosition()) <= rangeSq) {
-                            chr.getClient().announce(packet);
-                        }
-                    } else {
+            characters.stream().filter((chr) -> (chr != source)).forEach((chr) -> {
+                if (rangeSq < Double.POSITIVE_INFINITY) {
+                    if (rangedFrom.distanceSq(chr.getPosition()) <= rangeSq) {
                         chr.getClient().announce(packet);
                     }
+                } else {
+                    chr.getClient().announce(packet);
                 }
-            }
+            });
         } finally {
             chrRLock.unlock();
         }
@@ -1358,8 +1336,16 @@ public class MapleMap {
             getMapObjectsInRange(chr.getPosition(), 722500, rangedMapobjectTypes).stream().forEach((o) -> {
                 if (o.getType() == MapleMapObjectType.REACTOR) {
                     if (((MapleReactor) o).isAlive()) {
-                        o.sendSpawnData(chr.getClient());
-                        chr.addVisibleMapObject(o);
+                        if (o instanceof MapleHarvestable) {
+                            ProfessionType type = mapleClient.getPlayer().getProfessions().getProfession(true).getType();
+                            if (((MapleHarvestable) o).canHarvest(type)) {
+                                o.sendSpawnData(chr.getClient());
+                                chr.addVisibleMapObject(o);
+                            }
+                        } else {
+                            o.sendSpawnData(chr.getClient());
+                            chr.addVisibleMapObject(o);
+                        }
                     }
                 } else {
                     o.sendSpawnData(chr.getClient());
@@ -1461,7 +1447,7 @@ public class MapleMap {
     }
 
     private void updateMapObjectVisibility(MapleCharacter chr, MapleMapObject mo) {
-        if (!chr.isMapObjectVisible(mo)) { // monster entered view range
+        if (!chr.isMapObjectVisible(mo)) {
             if (mo.getType() == MapleMapObjectType.SUMMON || mo.getPosition().distanceSq(chr.getPosition()) <= 722500) {
                 chr.addVisibleMapObject(mo);
                 mo.sendSpawnData(chr.getClient());
@@ -1606,17 +1592,15 @@ public class MapleMap {
     private void broadcastGMMessage(MapleCharacter source, final byte[] packet, double rangeSq, Point rangedFrom) {
         chrRLock.lock();
         try {
-            for (MapleCharacter chr : characters) {
-                if (chr != source && chr.isGM()) {
-                    if (rangeSq < Double.POSITIVE_INFINITY) {
-                        if (rangedFrom.distanceSq(chr.getPosition()) <= rangeSq) {
-                            chr.getClient().announce(packet);
-                        }
-                    } else {
+            characters.stream().filter((chr) -> (chr != source && chr.isGM())).forEach((chr) -> {
+                if (rangeSq < Double.POSITIVE_INFINITY) {
+                    if (rangedFrom.distanceSq(chr.getPosition()) <= rangeSq) {
                         chr.getClient().announce(packet);
                     }
+                } else {
+                    chr.getClient().announce(packet);
                 }
-            }
+            });
         } finally {
             chrRLock.unlock();
         }
@@ -1629,22 +1613,6 @@ public class MapleMap {
         } finally {
             chrRLock.unlock();
         }
-    }
-
-    public MapleOxQuiz getOx() {
-        return ox;
-    }
-
-    public void setOx(MapleOxQuiz set) {
-        this.ox = set;
-    }
-
-    public void setOxQuiz(boolean b) {
-        this.isOxQuiz = b;
-    }
-
-    public boolean isOxQuiz() {
-        return isOxQuiz;
     }
 
     public String getOnUserEnter() {
