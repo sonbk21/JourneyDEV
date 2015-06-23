@@ -1,25 +1,38 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package client.inventory;
 
 import client.inventory.Equip.EquipStat;
+import client.inventory.Equip.PotentialRank;
 import tools.Randomizer;
 
 /**
- * JourneyMS
- * 
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
  */
+
 public class PotentialLine {
 
     private final EquipStat effect;
     private final PotentialLevel superior;
     
     public enum PotentialLevel {
-        ZERO, ONE, TWO, THREE
+        ZERO, ONE, TWO, THREE;
     }
     
     public PotentialLine(EquipStat effect, PotentialLevel superior) {
@@ -37,13 +50,13 @@ public class PotentialLine {
         this.superior = PotentialLevel.values()[Randomizer.nextInt(PotentialLevel.values().length)];
     }
     
-    public int getValue(int rank) {
-        if (effect == EquipStat.WATK || effect == EquipStat.MAGIC)
-            return 2*rank - superior.ordinal()/2;
-        else if (effect == EquipStat.HANDS)
-            return rank;
+    public int getValue(PotentialRank rank) {
+        if (effect == EquipStat.HANDS || effect == EquipStat.WATK || effect == EquipStat.MAGIC)
+            return rank.ordinal();
+        else if (effect == EquipStat.HP || effect == EquipStat.MP || effect == EquipStat.WDEF || effect == EquipStat.MDEF)
+            return 10*rank.ordinal() - (superior.ordinal()/2)*5;
         else
-            return 4*rank - superior.ordinal();
+            return 2*rank.ordinal() - superior.ordinal()/2;
     }
     
     public EquipStat getEffect() {
