@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package client.command;
@@ -15,17 +26,18 @@ import java.util.Calendar;
 import java.util.List;
 import scripting.npc.NPCScriptManager;
 import server.MaplePortal;
-import server.life.MapleLifeFactory;
 import server.life.MapleMonster;
 import server.maps.MapleMap;
+import server.maps.MapleMapDataFactory;
 import server.maps.MapleMapObject;
 import server.maps.MapleMapObjectType;
 import tools.MaplePacketCreator;
 
 /**
- * JourneyMS
- * 
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
  */
+
 public class PlayerCommand extends Command {
 
     public PlayerCommand(MapleClient c, String[] args) {
@@ -42,7 +54,7 @@ public class PlayerCommand extends Command {
             case "dispose":
                 NPCScriptManager.getInstance().dispose(c);
                 c.announce(MaplePacketCreator.enableActions());
-                chr.dropMessage(6, "Done.");
+                chr.dropMessage(6, "Disposed.");
                 break;
             case "help":
                 chr.dropMessage(6, "Available Commands:");
@@ -50,20 +62,17 @@ public class PlayerCommand extends Command {
                 chr.dropMessage(6, "~info : Display information about your character.");
                 chr.dropMessage(6, "~time : Display the server time.");
                 chr.dropMessage(6, "~admin : Calls the mighty Maple Administrator. (Universal NPC)");
+                if (chr.getProfessions().getProfession(true) != null)
+                    chr.dropMessage(6, "~profession : Calls Grant, to inform you about your professions.");
                 chr.dropMessage(6, "~bosshp : Display the HP of nearby bosses.");
-                if (chr.isSupremeWorld()) {
-                    chr.dropMessage(6, "~goto <mapname> : Warps you to any map. (Supreme World only)");
-                    chr.dropMessage(6, "~togglerebirth : Turns auto rebirth on or off. (Supreme World only)");
-                    chr.dropMessage(6, "~<stat> <amount> : Adds ap into a stat. (Supreme World only)");
-                }
                 break;
             case "info":
                 chr.dropMessage(6, "Vote Points: "+c.getVPoints());
                 chr.dropMessage(6, "Cash: "+chr.getCashShop().getCash(1));
                 chr.dropMessage(6, "Rank: "+chr.getRank());
-                if (chr.getAbilities().getLines() > 0) {
+                if (chr.getAbilities().getLinesSize() > 0) {
                     String msg = "Inner Ability ("+chr.getAbilities().getName()+"): ";
-                    for (byte i = 0; i < chr.getAbilities().getLines(); i++)
+                    for (byte i = 0; i < chr.getAbilities().getLinesSize(); i++)
                         msg += chr.getAbilities().getLine(i).getName(chr.getAbilities().getRank())+"  ";
                     chr.dropMessage(6, msg);
                 }
@@ -75,47 +84,31 @@ public class PlayerCommand extends Command {
             case "admin":
                 NPCScriptManager.getInstance().start(c, 9010000, "admin", chr);
                 break;
+            case "profession":
+                if (chr.getProfessions().getProfession(true) != null) {
+                    NPCScriptManager.getInstance().start(c, 9031000, "9031000", chr);
+                } else {
+                    chr.message("You have yet to learn a profession.");
+                }
+                break;
             case "goto":
-                if (!chr.isSupremeWorld()) {
-                    chr.message("You may only use this command in the supreme World.");
-                    break;
-                }
                 if (args.length < 2) {
-                    chr.message("Please use ~goto <mapname>");
+                    chr.message("Please use ~goto <mapname/mapid>");
                 }
-                MapleMap target;
+                MapleMap target = null;
+                        
+                int targetId = MapleMapDataFactory.getInstance().searchMapByName(args);
+                if (targetId > 0)
+                    target = c.getChannelServer().getMapFactory().getMap(targetId);
+                
                 try {
-                    target = c.getChannelServer().getMapFactory().getMap(Integer.valueOf(args[1]));
-                } catch (NumberFormatException nfe) {
-                    target = c.getChannelServer().getMapFactory().searchMapByName(args);
-                }
-                if (target == null) {
+                    if (target == null)
+                        target = c.getChannelServer().getMapFactory().getMap(Integer.valueOf(args[1]));
+                    MaplePortal targetPortal = target.getPortal(0);
+                    chr.changeMap(target, targetPortal);
+                } catch (NumberFormatException | NullPointerException e) {
                     chr.dropMessage(6, "Map does not exist.");
-                    break;
                 }
-                MaplePortal targetPortal = target.getPortal(0);
-                chr.changeMap(target, targetPortal);
-                break;
-            case "togglerebirth":
-                if (!chr.isSupremeWorld()) {
-                    chr.message("You may only use this command in the supreme World.");
-                    break;
-                }
-                if (chr.toggleAutoRebirth())
-                    chr.dropMessage(6, "Autorebirth is now turned ON.");
-                else
-                    chr.dropMessage(6, "Autorebirth is now turned OFF.");
-                break;
-            case "rebirth":
-                if (!chr.isSupremeWorld()) {
-                    chr.message("You may only use this command in the supreme World.");
-                    break;
-                }
-                if (chr.getLevel() != 200) {
-                    chr.message("You may only use this command after reaching level 200.");
-                    break;
-                }
-                chr.doRebirth();
                 break;
             case "bosshp":
                 boolean found = false;
@@ -135,16 +128,11 @@ public class PlayerCommand extends Command {
             case "dex":
             case "int":
             case "luk":
-                if (!chr.isSupremeWorld()) {
-                    chr.message("You may only use this command in the supreme World.");
-                    break;
-                }
                 try {
                     MapleStat type = MapleStat.getByString(args[0].toUpperCase());
-                    if (c.getPlayer().getRemainingAp() >= Integer.valueOf(args[1])) {
+                    if (c.getPlayer().getStat(MapleStat.AVAILABLEAP) >= Integer.valueOf(args[1])) {
                         c.getPlayer().addStat(type, Short.valueOf(args[1]));
-                        c.getPlayer().setRemainingAp(c.getPlayer().getRemainingAp() - Integer.valueOf(args[1]));
-                        c.getPlayer().updateSingleStat(MapleStat.AVAILABLEAP, c.getPlayer().getRemainingAp());
+                        c.getPlayer().addStat(MapleStat.AVAILABLEAP, (short) -Integer.valueOf(args[1]));
                     } else {
                         c.getPlayer().dropMessage(6, "You don't have enough AP left.");
                     }
