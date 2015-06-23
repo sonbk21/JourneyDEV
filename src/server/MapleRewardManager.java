@@ -1,11 +1,23 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package server;
 
+import server.properties.MapleRewardEntry;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,15 +31,14 @@ import tools.DatabaseConnection;
 import tools.Randomizer;
 
 /**
- * JourneyMS
- * 
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
  */
 
 public class MapleRewardManager {
     
     private static MapleRewardManager instance = null;
     private final EnumMap<RewardEvent, List<MapleRewardEntry>> rewards = new EnumMap<>(RewardEvent.class);
-    private final EnumMap<RewardEvent, List<MapleRewardEntry>> swrewards = new EnumMap<>(RewardEvent.class);
     
     private MapleRewardManager() {
     }
@@ -43,8 +54,8 @@ public class MapleRewardManager {
         GACHAPON, FISHING, TREASURE;
     }
     
-    public MapleRewardEntry chooseRandomItem(RewardEvent event, boolean supremeWorld) {
-        List<MapleRewardEntry> rewardlist = (supremeWorld)? swrewards.get(event) : rewards.get(event);
+    public MapleRewardEntry chooseRandomItem(RewardEvent event) {
+        List<MapleRewardEntry> rewardlist = rewards.get(event);
         if (rewardlist.isEmpty())
             return null;
         MapleRewardEntry ret;
@@ -56,20 +67,24 @@ public class MapleRewardManager {
         return ret;
     }
     
-    public boolean loadEventRewards(RewardEvent event, boolean supreme) {
+    public boolean loadEventRewards(RewardEvent event) {
         List<MapleRewardEntry> entries = new LinkedList<>();
+        
         try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT itemid FROM rewards WHERE world = ? AND event = ?")) {
-            ps.setByte(1, (byte) ((supreme)?1:0));
+            ps.setBoolean(1, false);
             ps.setInt(2, event.ordinal());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     entries.add( new MapleRewardEntry(rs.getInt("itemid"), rs.getShort("min"), rs.getShort("max"), rs.getByte("rarity")));
                 }
+                rs.close();
             }
+            ps.close();
         } catch (SQLException ex) {
             Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
+        
         rewards.put(event, entries);
         return !entries.isEmpty();
     }
@@ -81,37 +96,21 @@ public class MapleRewardManager {
         for (RewardEvent event : RewardEvent.values()) {
             entries = new LinkedList<>();
             try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT itemid, min, max, rarity FROM rewards WHERE world = ? AND event = ?")) {
-                ps.setByte(1, (byte) 0);
+                ps.setBoolean(1, false);
                 ps.setInt(2, event.ordinal());
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         entries.add( new MapleRewardEntry(rs.getInt("itemid"), rs.getShort("min"), rs.getShort("max"), rs.getByte("rarity")));
                         i++;
                     }
+                    rs.close();
                 }
+                ps.close();
             } catch (SQLException ex) {
                 Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
             }
             rewards.put(event, entries);
         }
-        
-        for (RewardEvent event : RewardEvent.values()) {
-            entries = new LinkedList<>();
-            try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT itemid, min, max, rarity FROM rewards WHERE world = ? AND event = ?")) {
-                ps.setByte(1, (byte) 1);
-                ps.setInt(2, event.ordinal());
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        entries.add( new MapleRewardEntry(rs.getInt("itemid"), rs.getShort("min"), rs.getShort("max"), rs.getByte("rarity")));
-                        i++;
-                    }
-                }
-            } catch (SQLException ex) {
-                Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            swrewards.put(event, entries);
-        }
-        
         return i;
     }
 }
