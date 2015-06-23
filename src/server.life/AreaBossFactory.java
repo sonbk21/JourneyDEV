@@ -1,10 +1,23 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package server.life;
 
+import server.properties.AreaBossEntry;
 import java.awt.Point;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,16 +28,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import tools.DatabaseConnection;
 
-/*
-JourneyMS
-BossFactory - loads areabosses from db (somehow theyre not in .wz files? i just assumed that at first)
-*/
+/**
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
+ */
 
-public class BossFactory {
+public class AreaBossFactory {
     
-    private static final Map<Integer, BossData> areabosses = new HashMap<>();
+    private static final Map<Integer, AreaBossEntry> areabosses = new HashMap<>();
     
-    public static BossData getBoss(int mapid) {
+    public static AreaBossEntry getBossData(int mapid) {
         return areabosses.get(mapid);
     }
     
@@ -48,11 +61,13 @@ public class BossFactory {
                     if (rs.getObject("x3") != null)
                         position[2] = new Point(rs.getInt("x3"), rs.getInt("y3"));
                     msg = rs.getString("msg");
-                    areabosses.put(mapid, new BossData(bossid, intervall, position, msg));
+                    areabosses.put(mapid, new AreaBossEntry(bossid, intervall, position, msg));
                 }
+                rs.close();
             }
+            ps.close();
         } catch (SQLException ex) {
-            Logger.getLogger(BossFactory.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AreaBossFactory.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }        
+    }
 }
