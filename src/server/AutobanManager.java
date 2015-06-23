@@ -28,9 +28,10 @@ import provider.MapleDataProviderFactory;
 import provider.MapleDataTool;
 
 /**
- * JourneyMS
- * 
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
  */
+
 public class AutobanManager {
     
     private static final EnumMap<WZCheck, HashSet<Integer>> legitIDs = new EnumMap<>(WZCheck.class);
@@ -62,9 +63,9 @@ public class AutobanManager {
                     case MAKECHARINFO:
                         source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Etc.wz"));
                         data = source.getData("MakeCharInfo.img").getChildByPath("Info");
-                        data.getChildren().stream().forEach((gender) -> {
-                            gender.getChildren().stream().forEach((cat) -> {
-                                cat.getChildren().stream().forEach((id) -> {
+                        data.getChildren().parallelStream().forEach((gender) -> {
+                            gender.getChildren().parallelStream().forEach((cat) -> {
+                                cat.getChildren().parallelStream().forEach((id) -> {
                                     ret.add(MapleDataTool.getIntConvert(id));
                                 });
                             });
@@ -79,3 +80,5 @@ public class AutobanManager {
         }
     }
 }
+
+
