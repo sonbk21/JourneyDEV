@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package server.maps;
 
 import java.awt.Point;
@@ -21,6 +37,11 @@ import server.life.MapleMonster;
 import tools.DatabaseConnection;
 import tools.Pair;
 import tools.StringUtil;
+
+/**
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
+ */
 
 public class MapleMapDataFactory {
 
@@ -154,10 +175,8 @@ public class MapleMapDataFactory {
                     AbstractLoadedMapleLife myLife = loadLife(life, id, type);
                     if (myLife instanceof MapleMonster) {
                         MapleMonster monster = (MapleMonster) myLife;
-                        int mobTime = MapleDataTool.getInt("mobTime", life, 0);
-                        int team = MapleDataTool.getInt("team", life, -1);
-                        myLife.setMobtime(mobTime);
-                        myLife.setTeam(team);
+                        monster.setMobtime(MapleDataTool.getInt("mobTime", life, 0));
+                        monster.setTeam(MapleDataTool.getInt("team", life, -1));
                         map.addMapObject(monster);
                     } else {
                         map.addMapObject(myLife);
