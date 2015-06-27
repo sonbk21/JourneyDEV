@@ -52,12 +52,12 @@ public class MapleMapDataFactory {
     private static final Map<Integer, MapleMapData> mapdata = new HashMap<>();
     
     private static MapleMapDataFactory instance;
-    private final ReentrantLock dataLoadLock;
+    private final ReentrantLock dataLock;
 
     private MapleMapDataFactory() {
-        this.source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Map.wz")); 
+        this.source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Map.wz"));
         this.nameData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz")).getData("Map.img");
-        dataLoadLock = new ReentrantLock(false);
+        dataLock = new ReentrantLock(false);
     }
     
     public static MapleMapDataFactory getInstance() {
@@ -70,16 +70,28 @@ public class MapleMapDataFactory {
     public boolean isMapDataLoaded(int mapid) {
         return mapdata.containsKey(mapid);
     }
+    
+    public void removeMapObjects(int mapid) {
+        if (mapdata.containsKey(mapid)) {
+            dataLock.lock();
+            try {
+                if (mapdata.containsKey(mapid)) {
+                    mapdata.get(mapid).clearMapObjects();
+                }
+            } finally {
+                dataLock.unlock();
+            }
+        }
+    }
 
     public MapleMapData getMapData(int mapid) {
         if (mapdata.containsKey(mapid)) {
             return mapdata.get(mapid);
         } else  {
-            dataLoadLock.lock();
+            dataLock.lock();
             try {
-                MapleMapData map = mapdata.get(mapid);
-                if (map != null) {
-                    return map;
+                if (mapdata.containsKey(mapid)) {
+                    return mapdata.get(mapid);
                 }
                 
                 String mapName = getMapName(mapid);
@@ -131,7 +143,7 @@ public class MapleMapDataFactory {
                 MapleFootholdTree fTree = new MapleFootholdTree(lBound, uBound);
                 allFootholds.stream().forEach((fh) -> { fTree.insert(fh); });
                 
-                map = new MapleMapData(mapid, MapleDataTool.getInt("info/returnMap", mapData),
+                MapleMapData map = new MapleMapData(mapid, MapleDataTool.getInt("info/returnMap", mapData),
                                         MapleDataTool.getInt(mapData.getChildByPath("info/forcedReturn"), 999999999),
                                         (mapData.getChildByPath("info/mobRate") != null)? (Float) mapData.getChildByPath("info/mobRate").getData() : 0,
                                         MapleDataTool.getString(mapData.getChildByPath("info/onFirstUserEnter"), String.valueOf(mapid)),
@@ -201,7 +213,7 @@ public class MapleMapDataFactory {
                 mapdata.put(mapid, map);
                 return map;
             } finally {
-                dataLoadLock.unlock();
+                dataLock.unlock();
             }
         }
     }
