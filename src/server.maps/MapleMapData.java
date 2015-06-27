@@ -202,6 +202,10 @@ public class MapleMapData {
         return npcs.get(oid);
     }
     
+    public void clearMapObjects() {
+        mapobjects.clear();
+    }
+    
     public Point calcPointBelow(Point initial) {
         MapleFoothold fh = footholds.findBelow(initial);
         if (fh == null) {
