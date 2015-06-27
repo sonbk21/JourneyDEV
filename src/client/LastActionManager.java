@@ -17,7 +17,14 @@
 
 package client;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.EnumMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import tools.DatabaseConnection;
 
 /**
  * Author: SYJourney
@@ -26,23 +33,56 @@ import java.util.EnumMap;
 
 public class LastActionManager {
     
-    private final EnumMap<MapleAction, Long> lastActionHolder;
+    private final EnumMap<MapleAction, Long> timeActionHolder;
+    private final EnumMap<MapleAction, Byte> countActionHolder;
     private short observedAction; 
     
     public enum MapleAction {
-        NPCTALK(500), HARVEST, HEAL(1500), ITEMSORT, PETFOOD, CATCHITEM, SPECIALMOVE(500);
-        private final int actionLimit;
+        NPCTALK(0.5), 
+        HARVEST, 
+        HEAL(1.5), 
+        ITEMSORT, 
+        PETFOOD, 
+        CATCHITEM, 
+        SPECIALMOVE(500), 
+        ENTERHARVEST(3600 * 24, 3),
+        CPQ(3600 * 12, 3),
+        CPQ2(3600 * 12, 3),
+        LUDI(3600 * 12, 3),
+        LUDIMAZE(3600 * 12, 3),
+        PIRATE(3600 * 12, 3),
+        DOJO(3600 * 24, 5),
+        BPQEASY(3600 * 24, 5),
+        BPQMED(3600 * 24, 5),
+        BPQHARD(3600 * 24, 5),
+        BPQHELL(3600 * 24, 5),
+        NEOTOKYO(3600 * 12, 2),
+        ARMORIA(3600 * 12, 1),
+        ZAK(3600 * 24, 1), 
+        HT(3600 * 24, 1),
+        PB(3600 * 24, 1);
+        private final double timeLimit;
+        private final int countLimit;
         
         MapleAction() {
-            this(1000);
+            this(1, 0);
         }
         
-        MapleAction(int actionLimit) {
-            this.actionLimit = actionLimit;
+        MapleAction(double timeLimit) {
+            this(timeLimit, 0);
         }
         
-        public int getActionLimit() {
-            return actionLimit;
+        MapleAction(double timeLimit, int countLimit) {
+            this.timeLimit = timeLimit;
+            this.countLimit = countLimit;
+        }
+        
+        private double getTimeLimit() {
+            return timeLimit;
+        }
+        
+        private int getCountLimit() {
+            return countLimit;
         }
     }
     
@@ -51,13 +91,32 @@ public class LastActionManager {
     }
     
     public LastActionManager() {
-        lastActionHolder = new EnumMap<>(MapleAction.class);
+        timeActionHolder = new EnumMap<>(MapleAction.class);
+        countActionHolder = new EnumMap<>(MapleAction.class);
         observedAction = 0;
     }
     
     public ActionResult tryAction(MapleAction ma) {
-        if (lastActionHolder.containsKey(ma)) {
-            if (System.currentTimeMillis() - lastActionHolder.get(ma) < 200) {
+        if (ma.getCountLimit() > 0) {
+            if (countActionHolder.containsKey(ma)) {
+                byte tries = countActionHolder.get(ma);
+                if (tries < ma.getCountLimit()) {
+                    countActionHolder.put(ma, (byte) (tries + 1));
+                    if (tries + 1 == ma.getCountLimit()) {
+                        timeActionHolder.put(ma, System.currentTimeMillis());
+                    }
+                    return ActionResult.ALLOW;
+                } else if (ma.getTimeLimit() == 0) {
+                    return ActionResult.DISALLOW;
+                }
+            } else {
+                countActionHolder.put(ma, (byte) 1);
+                return ActionResult.ALLOW;
+            }
+        }
+        
+        if (timeActionHolder.containsKey(ma)) {
+            if (System.currentTimeMillis() - timeActionHolder.get(ma) < 200) {
                 observedAction ++;
                 if (observedAction > 50)
                     return ActionResult.DISCONNECT;
@@ -65,16 +124,74 @@ public class LastActionManager {
                 observedAction = (short) (observedAction/2);
             }
             
-            if (System.currentTimeMillis() > lastActionHolder.get(ma) + ma.getActionLimit())
+            long timeLimit = timeActionHolder.get(ma) + (long) Math.floor(ma.getTimeLimit() * 1000);
+            if (System.currentTimeMillis() > timeLimit) {
                 return ActionResult.ALLOW;
-            else
+            } else {
                 return ActionResult.DISALLOW;
+            }
         } else {
             return ActionResult.ALLOW;
         }
     }
     
     public void setLastAction(MapleAction ma) {
-        lastActionHolder.put(ma, System.currentTimeMillis());
+        timeActionHolder.put(ma, System.currentTimeMillis());
+    }
+    
+    public void saveActions(int charid) {
+        if (countActionHolder.isEmpty()) {
+            return;
+        }
+        
+        try {
+            Connection con = DatabaseConnection.getConnection();
+            PreparedStatement psd;
+            psd = con.prepareStatement("DELETE FROM lastactions WHERE charid = ?");
+            psd.setInt(1, charid);
+            psd.execute();
+            psd.close();
+            
+            final PreparedStatement ps;
+            ps = con.prepareStatement("INSERT INTO lastactions VALUES (?, ?, ?, ?)");
+            ps.setInt(1, charid);
+            countActionHolder.entrySet().stream().forEach((entry) -> {
+                try {
+                    ps.setByte(2, (byte) entry.getKey().ordinal());
+                    ps.setLong(3, timeActionHolder.containsKey(entry.getKey())? timeActionHolder.get(entry.getKey()) : 0);
+                    ps.setByte(4, (byte) entry.getValue());
+                    ps.addBatch();
+                } catch (SQLException ex) {
+                    Logger.getLogger(LastActionManager.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            });
+            ps.executeBatch();
+            ps.close();
+        } catch (SQLException e) {
+            Logger.getLogger(LastActionManager.class.getName()).log(Level.SEVERE, null, e);
+        }
+    }
+    
+    public void loadActions(int charid) {
+        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT action, lastaction, count FROM lastactions WHERE charid = ?")) {
+            ps.setInt(1, charid);
+            try (ResultSet rs = ps.executeQuery()) {
+                MapleAction ma;
+                byte count;
+                long time;
+                while (rs.next()) {
+                    ma = MapleAction.values()[rs.getByte("action")];
+                    count = rs.getByte("count");
+                    time = rs.getLong("lastaction");
+                    countActionHolder.put(ma, count);
+                    if (time > 0)
+                        timeActionHolder.put(ma, time);
+                }
+                rs.close();
+            }
+            ps.close();
+        } catch (SQLException sqle) {
+            Logger.getLogger(LastActionManager.class.getName()).log(Level.SEVERE, null, sqle);
+        }
     }
 }
