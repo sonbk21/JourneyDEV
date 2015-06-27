@@ -16,6 +16,8 @@
  */
 package server.maps;
 
+import constants.GameConstants;
+import constants.ServerConstants;
 import java.awt.Point;
 import java.io.File;
 import java.sql.PreparedStatement;
@@ -50,14 +52,17 @@ public class MapleMapDataFactory {
     
     private final Map<String, Integer> mapNames = new HashMap<>();
     private static final Map<Integer, MapleMapData> mapdata = new HashMap<>();
+    private final Map<Integer, Byte> channelMaps = new HashMap<>();
     
     private static MapleMapDataFactory instance;
     private final ReentrantLock dataLock;
+    private final ReentrantLock channelMapLock;
 
     private MapleMapDataFactory() {
         this.source = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/Map.wz"));
         this.nameData = MapleDataProviderFactory.getDataProvider(new File(System.getProperty("wzpath") + "/String.wz")).getData("Map.img");
         dataLock = new ReentrantLock(false);
+        channelMapLock = new ReentrantLock(true);
     }
     
     public static MapleMapDataFactory getInstance() {
@@ -83,14 +88,32 @@ public class MapleMapDataFactory {
             }
         }
     }
+    
+    public void incrementChannelMaps(int mapid) {
+        if (GameConstants.isPQMap(mapid))
+            return;
+        channelMapLock.lock();
+        try {
+            byte count = channelMaps.containsKey(mapid)? channelMaps.get(mapid) : 0;
+            channelMaps.put(mapid, (byte) (count + 1));
+            if (count + 1 >= ServerConstants.CHANNELS) {
+                removeMapObjects(mapid);
+                channelMaps.remove(mapid);
+            }
+        } finally {
+            channelMapLock.unlock();
+        }
+    }
 
     public MapleMapData getMapData(int mapid) {
         if (mapdata.containsKey(mapid)) {
+            incrementChannelMaps(mapid);
             return mapdata.get(mapid);
         } else  {
             dataLock.lock();
             try {
                 if (mapdata.containsKey(mapid)) {
+                    incrementChannelMaps(mapid);
                     return mapdata.get(mapid);
                 }
                 
@@ -211,6 +234,7 @@ public class MapleMapDataFactory {
                 }
                 
                 mapdata.put(mapid, map);
+                incrementChannelMaps(mapid);
                 return map;
             } finally {
                 dataLock.unlock();
