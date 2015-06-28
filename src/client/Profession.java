@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2015 SYJourney
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package client;
@@ -10,16 +21,20 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedList;
+import java.util.List;
 import tools.DatabaseConnection;
 
 /**
- * JourneyMS
- * 
+ * Author: SYJourney
+ * This file is part of the Journey MMORPG Server
  */
+
 public class Professions {
     
     private MapleProfession primary;
     private MapleProfession secondary;
+    private final List<Integer> recipes = new LinkedList<>();
     
     public Professions(MapleProfession primary, MapleProfession secondary) {
         this.primary = primary;
@@ -33,6 +48,18 @@ public class Professions {
     
     public enum ProfessionType {
         NONE, MINING, HERBALISM, SMITHING, CRAFTING, ALCHEMY;
+        
+        public int getRecipeTypeId() {
+            switch (this) {
+                case SMITHING:
+                    return 2024000;
+                case CRAFTING:
+                    return 2024001;
+                case ALCHEMY:
+                    return 2024002;
+            }
+            return 0;
+        }
     }
     
     public enum ProfessionLevel {
@@ -143,6 +170,26 @@ public class Professions {
             return null;
     }
     
+    public boolean hasRecipe(int rid) {
+        return recipes.contains(rid);
+    }
+    
+    public boolean addRecipe(int rid) {
+        if (!hasRecipe(rid)) {
+            recipes.add(rid);
+            return true;
+        }
+        return false;
+    }
+    
+    public void removeRecipe(int rid) {
+        recipes.remove((Integer) rid);
+    }
+    
+    public List<Integer> getRecipes() {
+        return recipes;
+    }
+    
     public void loadProfessions(final int charid) {
         try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT type, level, exp FROM professions WHERE charid = ?")) {
             ps.setInt(1, charid);
@@ -156,6 +203,19 @@ public class Professions {
                     } else {
                         secondary = loaded;
                     }
+                }
+                rs.close();
+            }
+            ps.close();
+        } catch (SQLException sqle) {
+            System.out.println("Error."+sqle);
+        }
+        
+        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT rid FROM recipes WHERE charid = ?")) {
+            ps.setInt(1, charid);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    recipes.add(rs.getInt("rid"));
                 }
                 rs.close();
             }
@@ -199,6 +259,27 @@ public class Professions {
             }
             ps = con.prepareStatement(query.toString());
             ps.execute();
+            ps.close();
+        } catch (SQLException e) {
+            System.out.println("Error."+e);
+        }
+        
+        if (recipes.isEmpty()) {
+            return;
+        }
+        
+        try {
+            Connection con = DatabaseConnection.getConnection();
+            PreparedStatement ps = con.prepareStatement("DELETE FROM recipes WHERE charid = ?");
+            ps.setInt(1, charid);
+            ps.execute();
+            ps = con.prepareStatement("INSERT INTO recipes VALUES (?, ?)");
+            ps.setInt(1, charid);
+            for (Integer rid : recipes) {
+                ps.setInt(2, rid);
+                ps.addBatch();
+            }
+            ps.executeBatch();
             ps.close();
         } catch (SQLException e) {
             System.out.println("Error."+e);
