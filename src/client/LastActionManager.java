@@ -44,7 +44,7 @@ public class LastActionManager {
         ITEMSORT, 
         PETFOOD, 
         CATCHITEM, 
-        SPECIALMOVE(500), 
+        SPECIALMOVE(0.5), 
         ENTERHARVEST(3600 * 24, 3),
         CPQ(3600 * 12, 3),
         CPQ2(3600 * 12, 3),
@@ -126,6 +126,9 @@ public class LastActionManager {
             
             long timeLimit = timeActionHolder.get(ma) + (long) Math.floor(ma.getTimeLimit() * 1000);
             if (System.currentTimeMillis() > timeLimit) {
+                if (countActionHolder.containsKey(ma)) {
+                    countActionHolder.put(ma, (byte) 1);
+                }
                 return ActionResult.ALLOW;
             } else {
                 return ActionResult.DISALLOW;
@@ -137,6 +140,10 @@ public class LastActionManager {
     
     public void setLastAction(MapleAction ma) {
         timeActionHolder.put(ma, System.currentTimeMillis());
+    }
+    
+    public long getRemaining(MapleAction ma) {
+        return timeActionHolder.get(ma) + (long) Math.floor(ma.getTimeLimit() * 1000) - System.currentTimeMillis();
     }
     
     public void saveActions(int charid) {
