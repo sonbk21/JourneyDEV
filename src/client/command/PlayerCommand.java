@@ -17,6 +17,7 @@
 
 package client.command;
 
+import client.Abilities;
 import client.MapleCharacter;
 import client.MapleClient;
 import client.properties.MapleStat;
@@ -26,6 +27,7 @@ import java.util.Calendar;
 import java.util.List;
 import scripting.npc.NPCScriptManager;
 import server.MaplePortal;
+import server.Timer.WorldTimer;
 import server.life.MapleMonster;
 import server.maps.MapleMap;
 import server.maps.MapleMapDataFactory;
@@ -60,7 +62,7 @@ public class PlayerCommand extends Command {
                 chr.dropMessage(6, "Available Commands:");
                 chr.dropMessage(6, "~dispose : Use it when you can't attack or talk to an NPC.");
                 chr.dropMessage(6, "~info : Display information about your character.");
-                chr.dropMessage(6, "~time : Display the server time.");
+                chr.dropMessage(6, "~time : Display the server time and uptime.");
                 chr.dropMessage(6, "~admin : Calls the mighty Maple Administrator. (Universal NPC)");
                 if (chr.getProfessions().getProfession(true) != null)
                     chr.dropMessage(6, "~profession : Calls Grant, to inform you about your professions.");
@@ -71,15 +73,26 @@ public class PlayerCommand extends Command {
                 chr.dropMessage(6, "Cash: "+chr.getCashShop().getCash(1));
                 chr.dropMessage(6, "Rank: "+chr.getRank());
                 if (chr.getAbilities().getLinesSize() > 0) {
-                    String msg = "Inner Ability ("+chr.getAbilities().getName()+"): ";
-                    for (byte i = 0; i < chr.getAbilities().getLinesSize(); i++)
-                        msg += chr.getAbilities().getLine(i).getName(chr.getAbilities().getRank())+"  ";
-                    chr.dropMessage(6, msg);
+                    Abilities abs = chr.getAbilities();
+                    StringBuilder sb = new StringBuilder("Inner Ability");
+                    sb.append(abs.getName());
+                    sb.append("): ");
+                    for (byte i = 0; i < chr.getAbilities().getLinesSize(); i++) {
+                        sb.append(abs.getLine(i).getName(chr.getAbilities().getRank()));
+                        sb.append("  ");
+                    }
+                    chr.dropMessage(6, sb.toString());
                 }
                 break;
             case "time":
                 final SimpleDateFormat time = new SimpleDateFormat("HH:mm:ss");
+                long uptime = WorldTimer.getInstance().getUptime();
+                int d = (int) uptime/(24 * 60 * 60);
+                int h = (int) (uptime % (24 * 60 * 60))/(60 * 60);
+                int m = (int) (uptime % (60 * 60))/(60);
+                
                 chr.dropMessage(6, "Server Time: "+time.format(Calendar.getInstance().getTime()));
+                chr.dropMessage(6, "Uptime: "+d+" Days : "+h+" Hours : "+m+" Minutes");
                 break;
             case "admin":
                 NPCScriptManager.getInstance().start(c, 9010000, "admin", chr);
