@@ -56,7 +56,7 @@ public class RecordsManager {
     public byte checkRecord(RecordEvent event, String names, int time) {
         List<Pair<String, Integer>> entries = loadRecords(event);
         if (entries.size() > 14) {
-            if (time > entries.get(14).getRight()) {
+            if (time > entries.get(15).getRight()) {
                 return 0;
             }
         }
@@ -67,12 +67,13 @@ public class RecordsManager {
         recordsUpdateLock.lock();
         try {
             Pair<String, Integer> toDelete = null;
-            byte rank = 0;
+            byte rank;
             
             if (!records.containsKey(event)) {
                 List<Pair<String, Integer>> entries = new LinkedList<>();
                 entries.add(new Pair<>(names, time));
                 records.put(event, entries);
+                rank = 0;
             } else {
                 List<Pair<String, Integer>> entries = records.get(event);
                 Pair<String, Integer> newEntry = new Pair(names, time);
@@ -82,6 +83,7 @@ public class RecordsManager {
                     toDelete = entries.remove(15);
                 }
                 records.put(event, entries);
+                rank = (byte) entries.indexOf(newEntry);
             }
         
             try {
