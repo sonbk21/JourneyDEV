@@ -53,46 +53,34 @@ public class RecordsManager {
         recordsUpdateLock = new ReentrantLock(true);
     }
     
-    public List<Pair<String, Integer>> getRecords(RecordEvent event) {
-        return records.containsKey(event)? Collections.unmodifiableList(records.get(event)) : null;
-    }
-    
     public byte checkRecord(RecordEvent event, String names, int time) {
         List<Pair<String, Integer>> entries = loadRecords(event);
-        
-        byte rank = 0;
-        if (!entries.isEmpty()) {
-            for (Pair<String, Integer> ere : entries) {
-                if (time < ere.getRight()) {
-                    rank = (byte) entries.indexOf(ere);
-                }
-            }
-            if (entries.size() > 14)
+        if (entries.size() > 14) {
+            if (time > entries.get(15).getRight()) {
                 return 0;
-            if (rank == 0)
-                rank = (byte) entries.size();
+            }
         }
-        return (byte) (updateRecords(event, names, time, rank) + 1);
+        return (byte) (updateRecords(event, names, time) + 1);
     }
     
-    public byte updateRecords(RecordEvent event, String names, int time, byte rank) {
+    public byte updateRecords(RecordEvent event, String names, int time) {
         recordsUpdateLock.lock();
         try {
             Pair<String, Integer> toDelete = null;
+            byte rank = 0;
+            
             if (!records.containsKey(event)) {
                 List<Pair<String, Integer>> entries = new LinkedList<>();
                 entries.add(new Pair<>(names, time));
                 records.put(event, entries);
             } else {
                 List<Pair<String, Integer>> entries = records.get(event);
-                
-                if (entries.get(rank).getRight() < time) { //Check if rank was taken while locked
-                    rank ++;
-                }
-                entries.add(rank, new Pair<>(names, time));
-                
-                if (records.get(event).size() > 15)
+                Pair<String, Integer> newEntry = new Pair(names, time);
+                entries.add(newEntry);
+                Collections.sort(entries, (a, b) -> a.getRight().compareTo(b.getRight()));
+                if (entries.size() > 15) {
                     toDelete = entries.remove(15);
+                }
                 records.put(event, entries);
             }
         
@@ -135,6 +123,9 @@ public class RecordsManager {
         } else {
             recordsLoadLock.lock();
             try {
+                if (records.containsKey(event)) {
+                    return records.get(event);
+                }
                 List<Pair<String, Integer>> entries = new LinkedList<>();
                 try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT time, charnames FROM records WHERE world = ? AND event = ? ORDER BY time ASC")) {
                     ps.setByte(1, world);
