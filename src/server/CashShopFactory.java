@@ -30,13 +30,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 import java.util.stream.Stream;
 import provider.MapleData;
 import provider.MapleDataProvider;
 import provider.MapleDataProviderFactory;
 import provider.MapleDataTool;
 import server.CashShop.CashItem;
-import server.CashShop.SpecialCashItem;
 import tools.DatabaseConnection;
 import tools.Pair;
 
@@ -44,7 +46,7 @@ import tools.Pair;
  * Author: SYJourney
  * This file is part of the Journey MMORPG Server
  */
- 
+
 public class CashShopFactory {
 
     private final Map<Integer, CashItem> items = new HashMap<>();
@@ -54,6 +56,8 @@ public class CashShopFactory {
     private final AtomicInteger blockedCSLength;
     
     private static CashShopFactory instance = null;
+    private final ReadLock bestRLock;
+    private final WriteLock bestWLock;
     
     public static CashShopFactory getInstance() {
         if (instance == null) {
@@ -118,6 +122,10 @@ public class CashShopFactory {
             } catch (SQLException ex) {
             }
         }
+        
+        ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+        bestRLock = lock.readLock();
+        bestWLock = lock.writeLock();
     }
 
     public CashItem getItem(int sn) {
@@ -129,18 +137,29 @@ public class CashShopFactory {
     }
         
     public void incrementPurchases(int sn) {
-        for (byte i = 0; i < bestitems.size(); i++) {
-            if (bestitems.get(i).getLeft() == sn) {
-                bestitems.add(i, new Pair(sn, bestitems.get(i).getRight() + 1));
-                bestitems.remove(i+1);
-                return;
+        bestWLock.lock();
+        try {
+            for (byte i = 0; i < bestitems.size(); i++) {
+                if (bestitems.get(i).getLeft() == sn) {
+                    bestitems.add(i, new Pair(sn, bestitems.get(i).getRight() + 1));
+                    bestitems.remove(i+1);
+                    Collections.sort(bestitems, (b, a) -> a.getRight().compareTo(b.getRight()));
+                    return;
+                }
             }
+            bestitems.add( new Pair(sn, 1));
+        } finally {
+            bestWLock.unlock();
         }
-        bestitems.add( new Pair(sn, 1));
     }
         
     public int getBestItem(int rank) {
-        return bestitems.get(rank).getLeft();
+        bestRLock.lock();
+        try {
+            return bestitems.get(rank).getLeft();
+        } finally {
+            bestRLock.unlock();
+        }
     }
         
     public Stream<Stream<Integer>> getBlockedItems() {
@@ -162,29 +181,33 @@ public class CashShopFactory {
     }
     
     public void saveBestItems() {
-        Collections.sort(bestitems, (b, a) -> a.getRight().compareTo(b.getRight()));
-        
-        PreparedStatement ps = null;
+        bestWLock.lock();
         try {
-            Connection con = DatabaseConnection.getConnection();
-            ps = con.prepareStatement("DELETE FROM bestitems");
-            ps.execute();
-            
-            ps = con.prepareStatement("INSERT INTO bestitems VALUES (?, ?)");
-            for (byte i = 0; i < 5; i++) {
-                ps.setInt(1, i);
-                ps.setInt(2, bestitems.get(i).getLeft());
-                ps.addBatch();
-            }
-            ps.executeBatch();
-        } catch (SQLException sqle) {
-            System.out.println(sqle);
-        } finally {
+            Collections.sort(bestitems, (b, a) -> a.getRight().compareTo(b.getRight()));
+        
+            PreparedStatement ps = null;
             try {
-                if (ps != null) ps.close();
+                Connection con = DatabaseConnection.getConnection();
+                ps = con.prepareStatement("DELETE FROM bestitems");
+                ps.execute();
+            
+                ps = con.prepareStatement("INSERT INTO bestitems VALUES (?, ?)");
+                for (byte i = 0; i < 5; i++) {
+                    ps.setInt(1, i);
+                    ps.setInt(2, bestitems.get(i).getLeft());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
             } catch (SQLException sqle) {
-                
+                System.out.println(sqle);
+            } finally {
+                try {
+                    if (ps != null) ps.close();
+                } catch (SQLException sqle) {
+                }
             }
+        } finally {
+            bestWLock.unlock();
         }
     }
 }
