@@ -38,22 +38,31 @@ import tools.Pair;
 
 public class RecordsManager {
     
-    private final EnumMap<RecordEvent, List<Pair<String, Integer>>> records = new EnumMap<>(RecordEvent.class);
+    private final EnumMap<Record, List<Pair<String, Integer>>> records = new EnumMap<>(Record.class);
     private final byte world;
     private final ReentrantLock recordsLoadLock;
     private final ReentrantLock recordsUpdateLock;
     
-    public enum RecordEvent {
+    private static RecordsManager instance = null;
+    
+    public enum Record {
         BOSSPQEASY, BOSSPQMED, BOSSPQHARD, BOSSPQHELL;
     }
     
-    public RecordsManager(byte world) {
+    public static RecordsManager getInstance() {
+        if (instance == null) {
+            instance = new RecordsManager((byte) 0);
+        }
+        return instance;
+    }
+    
+    private RecordsManager(byte world) {
         this.world = world;
         recordsLoadLock = new ReentrantLock(false);
         recordsUpdateLock = new ReentrantLock(true);
     }
     
-    public byte checkRecord(RecordEvent event, String names, int time) {
+    public byte checkRecord(Record event, String names, int time) {
         List<Pair<String, Integer>> entries = loadRecords(event);
         if (entries.size() > 14) {
             if (time > entries.get(15).getRight()) {
@@ -63,7 +72,7 @@ public class RecordsManager {
         return (byte) (updateRecords(event, names, time) + 1);
     }
     
-    public byte updateRecords(RecordEvent event, String names, int time) {
+    public byte updateRecords(Record event, String names, int time) {
         recordsUpdateLock.lock();
         try {
             Pair<String, Integer> toDelete = null;
@@ -119,7 +128,7 @@ public class RecordsManager {
         }
     }
     
-    public List<Pair<String, Integer>> loadRecords(RecordEvent event) {
+    public List<Pair<String, Integer>> loadRecords(Record event) {
         if (records.containsKey(event)) {
             return records.get(event);
         } else {
