@@ -27,7 +27,6 @@ function action(mode, type, selection) {
             status--;
     }
     if (status == 0) {
-        cm.teachSkill(1007, 3, 3, -1);
         cm.sendSimple("Hello #e#r#h0##k#n, how may I help you?\r\n#b#L0#Special Maps#l\r\n#L1#Trade Vote Points#l\r\n#L2#Maple Coin Shop#l\r\n#L5#Universal Equip Shop#l\r\n#L3#View Achievements#l\r\n#L4#Starter Guide#l");
     } else if (status == 1) {
         sel = selection;
