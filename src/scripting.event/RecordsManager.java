@@ -25,11 +25,14 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import tools.DatabaseConnection;
 import tools.Pair;
+import tools.Randomizer;
 
 /**
  * Author: SYJourney
@@ -61,13 +64,18 @@ public class RecordsManager {
     }
     
     public byte checkRecord(Record event, String names, int time) {
-        List<Pair<String, Integer>> entries = loadRecords(event);
-        if (entries.size() > 14) {
-            if (time > entries.get(15).getRight()) {
-                return 0;
+        recordsUpdateLock.lock();
+        try {
+            List<Pair<String, Integer>> entries = loadRecords(event);
+            if (entries.size() > 14) {
+                if (time > entries.get(14).getRight()) {
+                    return 0;
+                }
             }
+            return (byte) (updateRecords(event, names, time) + 1);
+        } finally {
+            recordsUpdateLock.unlock();
         }
-        return (byte) (updateRecords(event, names, time) + 1);
     }
     
     public byte updateRecords(Record event, String names, int time) {
@@ -98,10 +106,10 @@ public class RecordsManager {
                 PreparedStatement ps;
                 if (toDelete != null) {
                     try {
-                        ps = con.prepareStatement("DELETE FROM records WHERE event = ? AND names = ? AND time = ?");
+                        ps = con.prepareStatement("DELETE FROM records WHERE event = ? AND time = ?");
+                        System.out.println("delete");
                         ps.setInt(1, event.ordinal());
-                        ps.setString(2, toDelete.getLeft());
-                        ps.setInt(3, toDelete.getRight());
+                        ps.setInt(2, toDelete.getRight());
                         ps.execute();
                         ps.close();
                     } catch (SQLException ex) {
@@ -109,6 +117,7 @@ public class RecordsManager {
                     }
                 }
                 ps = con.prepareStatement("INSERT INTO records (`event`,`time`,`charnames`) VALUES (?, ?, ?)");
+                System.out.println("add");
                 ps.setInt(1, event.ordinal());
                 ps.setInt(2, time);
                 ps.setString(3, names);
@@ -137,7 +146,7 @@ public class RecordsManager {
                 try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT time, charnames FROM records WHERE event = ? ORDER BY time ASC")) {
                     ps.setInt(1, event.ordinal());
                     try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
+                        while (rs.next() && entries.size() < 16) {
                             entries.add( new Pair<>(rs.getString("charnames"), rs.getInt("time")));
                         }
                         rs.close();
