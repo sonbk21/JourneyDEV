@@ -39,7 +39,6 @@ import tools.Pair;
 public class RecordsManager {
     
     private final EnumMap<Record, List<Pair<String, Integer>>> records = new EnumMap<>(Record.class);
-    private final byte world;
     private final ReentrantLock recordsLoadLock;
     private final ReentrantLock recordsUpdateLock;
     
@@ -51,13 +50,12 @@ public class RecordsManager {
     
     public static RecordsManager getInstance() {
         if (instance == null) {
-            instance = new RecordsManager((byte) 0);
+            instance = new RecordsManager();
         }
         return instance;
     }
     
-    private RecordsManager(byte world) {
-        this.world = world;
+    private RecordsManager() {
         recordsLoadLock = new ReentrantLock(false);
         recordsUpdateLock = new ReentrantLock(true);
     }
@@ -100,22 +98,20 @@ public class RecordsManager {
                 PreparedStatement ps;
                 if (toDelete != null) {
                     try {
-                        ps = con.prepareStatement("DELETE FROM records WHERE world = ? AND event = ? AND names = ? AND time = ?");
-                        ps.setInt(1, world);
-                        ps.setInt(2, event.ordinal());
-                        ps.setString(3, toDelete.getLeft());
-                        ps.setInt(4, toDelete.getRight());
+                        ps = con.prepareStatement("DELETE FROM records WHERE event = ? AND names = ? AND time = ?");
+                        ps.setInt(1, event.ordinal());
+                        ps.setString(2, toDelete.getLeft());
+                        ps.setInt(3, toDelete.getRight());
                         ps.execute();
                         ps.close();
                     } catch (SQLException ex) {
                         Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
-                ps = con.prepareStatement("INSERT INTO records (`world`,`event`,`time`,`charnames`) VALUES (?, ?, ?, ?)");
-                ps.setInt(1, world);
-                ps.setInt(2, event.ordinal());
-                ps.setInt(3, time);
-                ps.setString(4, names);
+                ps = con.prepareStatement("INSERT INTO records (`event`,`time`,`charnames`) VALUES (?, ?, ?, ?)");
+                ps.setInt(1, event.ordinal());
+                ps.setInt(2, time);
+                ps.setString(3, names);
                 ps.executeUpdate();
                 ps.close();
                 return rank;
@@ -139,8 +135,7 @@ public class RecordsManager {
                 }
                 List<Pair<String, Integer>> entries = new LinkedList<>();
                 try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT time, charnames FROM records WHERE world = ? AND event = ? ORDER BY time ASC")) {
-                    ps.setByte(1, world);
-                    ps.setInt(2, event.ordinal());
+                    ps.setInt(1, event.ordinal());
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
                             entries.add( new Pair<>(rs.getString("charnames"), rs.getInt("time")));
