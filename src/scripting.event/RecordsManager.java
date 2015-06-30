@@ -25,14 +25,11 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 import tools.DatabaseConnection;
 import tools.Pair;
-import tools.Randomizer;
 
 /**
  * Author: SYJourney
@@ -107,7 +104,6 @@ public class RecordsManager {
                 if (toDelete != null) {
                     try {
                         ps = con.prepareStatement("DELETE FROM records WHERE event = ? AND time = ?");
-                        System.out.println("delete");
                         ps.setInt(1, event.ordinal());
                         ps.setInt(2, toDelete.getRight());
                         ps.execute();
@@ -117,7 +113,6 @@ public class RecordsManager {
                     }
                 }
                 ps = con.prepareStatement("INSERT INTO records (`event`,`time`,`charnames`) VALUES (?, ?, ?)");
-                System.out.println("add");
                 ps.setInt(1, event.ordinal());
                 ps.setInt(2, time);
                 ps.setString(3, names);
