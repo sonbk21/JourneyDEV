@@ -56,7 +56,7 @@ public class RecordsManager {
     public byte checkRecord(RecordEvent event, String names, int time) {
         List<Pair<String, Integer>> entries = loadRecords(event);
         if (entries.size() > 14) {
-            if (time > entries.get(15).getRight()) {
+            if (time > entries.get(14).getRight()) {
                 return 0;
             }
         }
