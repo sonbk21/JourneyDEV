@@ -108,7 +108,7 @@ public class RecordsManager {
                         Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
-                ps = con.prepareStatement("INSERT INTO records (`event`,`time`,`charnames`) VALUES (?, ?, ?, ?)");
+                ps = con.prepareStatement("INSERT INTO records (`event`,`time`,`charnames`) VALUES (?, ?, ?)");
                 ps.setInt(1, event.ordinal());
                 ps.setInt(2, time);
                 ps.setString(3, names);
@@ -134,7 +134,7 @@ public class RecordsManager {
                     return records.get(event);
                 }
                 List<Pair<String, Integer>> entries = new LinkedList<>();
-                try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT time, charnames FROM records WHERE world = ? AND event = ? ORDER BY time ASC")) {
+                try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT time, charnames FROM records WHERE event = ? ORDER BY time ASC")) {
                     ps.setInt(1, event.ordinal());
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
