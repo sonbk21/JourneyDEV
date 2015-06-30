@@ -20,7 +20,9 @@ package client.command;
 import client.Abilities;
 import client.MapleCharacter;
 import client.MapleClient;
+import client.properties.MapleJob;
 import client.properties.MapleStat;
+import constants.GameConstants;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -63,9 +65,11 @@ public class PlayerCommand extends Command {
                 chr.dropMessage(6, "~dispose : Use it when you can't attack or talk to an NPC.");
                 chr.dropMessage(6, "~info : Display information about your character.");
                 chr.dropMessage(6, "~time : Display the server time and uptime.");
+                chr.dropMessage(6, "~fm : Transports you to free market.");
                 chr.dropMessage(6, "~admin : Calls the mighty Maple Administrator. (Universal NPC)");
-                if (chr.getProfessions().getProfession(true) != null)
+                if (chr.getProfessions().getProfession(true) != null) {
                     chr.dropMessage(6, "~profession : Calls Grant, to inform you about your professions.");
+                }
                 chr.dropMessage(6, "~bosshp : Display the HP of nearby bosses.");
                 break;
             case "info":
@@ -90,35 +94,32 @@ public class PlayerCommand extends Command {
                 int d = (int) uptime/(24 * 60 * 60);
                 int h = (int) (uptime % (24 * 60 * 60))/(60 * 60);
                 int m = (int) (uptime % (60 * 60))/(60);
-                
                 chr.dropMessage(6, "Server Time: "+time.format(Calendar.getInstance().getTime()));
-                chr.dropMessage(6, "Uptime: "+d+" Days : "+h+" Hours : "+m+" Minutes");
-                break;
-            case "admin":
-                NPCScriptManager.getInstance().start(c, 9010000, "admin", chr);
-                break;
-            case "profession":
-                if (chr.getProfessions().getProfession(true) != null) {
-                    NPCScriptManager.getInstance().start(c, 9031000, "9031000", chr);
-                } else {
-                    chr.message("You have yet to learn a profession.");
-                }
-                break;
-            case "goto":
+                StringBuilder sb = new StringBuilder("Uptime: ");
+                sb.append(d);
+                sb.append((d == 1)? " Day : " : " Days : ");
+                sb.append(h);
+                sb.append((h == 1)? " Hour : " : " Hours : ");
+                sb.append(m);
+                sb.append((m == 1)? " Minute : " : " Minutes : ");
+                chr.dropMessage(6, sb.toString());
+                return;
+            case "gm":
+                return;
+            case "goto": //Command only used for testing stuff, will not be in beta
                 if (args.length < 2) {
                     chr.message("Please use ~goto <mapname/mapid>");
                 }
-                MapleMap target = null;
-                        
+                MapleMap target2 = null;
                 int targetId = MapleMapDataFactory.getInstance().searchMapByName(args);
                 if (targetId > 0)
-                    target = c.getChannelServer().getMapFactory().getMap(targetId);
-                
+                    target2 = c.getChannelServer().getMapFactory().getMap(targetId);
                 try {
-                    if (target == null)
-                        target = c.getChannelServer().getMapFactory().getMap(Integer.valueOf(args[1]));
-                    MaplePortal targetPortal = target.getPortal(0);
-                    chr.changeMap(target, targetPortal);
+                    if (target2 == null) {
+                        target2 = c.getChannelServer().getMapFactory().getMap(Integer.valueOf(args[1]));
+                    }
+                    MaplePortal targetPortal2 = target2.getPortal(0);
+                    chr.changeMap(target2, targetPortal2);
                 } catch (NumberFormatException | NullPointerException e) {
                     chr.dropMessage(6, "Map does not exist.");
                 }
@@ -136,7 +137,7 @@ public class PlayerCommand extends Command {
                 if (!found) {
                     c.getPlayer().dropMessage(6, "No monster was found.");
                 }
-                break;
+                return;
             case "str":
             case "dex":
             case "int":
@@ -152,11 +153,49 @@ public class PlayerCommand extends Command {
                 } catch (NumberFormatException nfe ){
                     c.getPlayer().dropMessage(6, "Please use ~<stat> <amount>.");
                 }
-                break;
-            default:
-                if (chr.getGMLevel() == 0) {
-                    chr.yellowMessage("Player Command "+ args[0] + " does not exist.");
-                }
+                return;
+        }
+        
+        byte deniedReason = isAllowedType2Commands(chr.getMapId(), chr.getStat(MapleStat.LEVEL), chr.getMapleJob(), chr.isAlive());
+        
+        if (deniedReason == 0) {
+            switch (args[0]) {
+                case "fm":
+                    chr.saveLocation("FREE_MARKET");
+                    MapleMap target = c.getChannelServer().getMapFactory().getMap(Integer.valueOf(910000000));
+                    MaplePortal targetPortal = target.getPortal(0);
+                    chr.changeMap(target, targetPortal);
+                    return;
+                case "profession":
+                    if (chr.getProfessions().getProfession(true) != null) {
+                        NPCScriptManager.getInstance().start(c, 9031000, "9031000", chr);
+                    } else {
+                        chr.message("You have yet to learn a profession.");
+                    }
+                    return;
+                case "admin":
+                    NPCScriptManager.getInstance().start(c, 9010000, "admin", chr);
+                    return;
+            }   
+        }
+        
+        switch (deniedReason) {
+            case 1: 
+                chr.dropMessage("You cannot use this command now.");
+                return;
+            case 2:
+                chr.dropMessage("You need to be atleast Level 10 to use this command.");
+                return;
+            case 3:
+                chr.dropMessage("You need to make your first job advancement to use this command.");
+                return;
+            case 4:
+                chr.dropMessage("You cannot use this command in a PQ Map.");
+                return;
+        }
+        
+        if (chr.getGMLevel() == 0) {
+            chr.dropMessage("Player Command "+ args[0] + " does not exist.");
         }
     }
     
@@ -175,5 +214,21 @@ public class PlayerCommand extends Command {
             output.append(temp.charAt(ind));
         }
         return output.toString();
+    }
+    
+    private static byte isAllowedType2Commands(int mapid, short level, MapleJob job, boolean alive) {
+        if (!alive || (mapid >=  910000000 && mapid <=  910000022)) {
+            return 1;
+        }
+        if (level < 10) {
+            return 2;
+        }
+        if (job == MapleJob.BEGINNER || job == MapleJob.LEGEND) {
+            return 3;
+        }
+        if (GameConstants.isPQMap(mapid)) {
+            return 4;
+        }
+        return 0;
     }
 }
