@@ -27,11 +27,12 @@ function action(mode, type, selection) {
             status--;
     }
     if (status == 0) {
+        cm.teachSkill(1007, 3, 3, -1);
         cm.sendSimple("Hello #e#r#h0##k#n, how may I help you?\r\n#b#L0#Special Maps#l\r\n#L1#Trade Vote Points#l\r\n#L2#Maple Coin Shop#l\r\n#L5#Universal Equip Shop#l\r\n#L3#View Achievements#l\r\n#L4#Starter Guide#l");
     } else if (status == 1) {
         sel = selection;
         if (selection == 0) {
-            cm.sendSimple("Where do you want to go?\r\n#b#L0#Boss Party Quest#l\r\n#L1#Monster Park#l\r\n#L2#Dimensional Mirror#l\r\n#L3#Fishing Map#l");
+            cm.sendSimple("Where do you want to go?\r\n#b#L0#Boss Party Quest#l\r\n#L1#Monster Park#l\r\n#L2#Dimensional Mirror#l\r\n#L3#Fishing Map#l\r\n#L4#Ardentmill#l");
         } else if (selection == 1) {
             if (cm.getPlayer().getLevel() >= 20) {
                 var s = sel-1;
@@ -85,6 +86,10 @@ function action(mode, type, selection) {
             } else if (selection == 3) {
                 cm.getPlayer().saveLocation("SUNDAY_MARKET");
                 cm.warp(970020000, 0);
+                cm.dispose();
+            } else if (selection == 4) {
+                cm.getPlayer().saveLocation("ARDENTMILL");
+                cm.warp(910001000, 0);
                 cm.dispose();
             }
         } else if (sel == 1) {
@@ -154,7 +159,7 @@ function action(mode, type, selection) {
             cm.dispose();
         }
     } else if (status == 24) {
-        cm.sendSimple("What would you like to know about?#b\r\n#L0#Custom Features#l\r\n#L1#Potential and Upgrade System#l\r\n#L2#Coming Updates#l\r\n#L3#Terms of Service (Game Rules)#l");
+        cm.sendSimple("What would you like to know about?#b\r\n#L0#Custom Features#l\r\n#L1#Potential and Upgrade System#l\r\n#L2#Available Content#l\r\n#L3#Terms of Service (Game Rules)#l");
     } else if (status == 25) {
             if (selection == 0) {
                 status = 29;
@@ -164,10 +169,10 @@ function action(mode, type, selection) {
                 cm.sendNext("The #bpotential system#k in #eJourneyMS#n is quite different from the official servers.");
             } else if (selection == 2) {
                 status = 23;
-                cm.sendNext("Coming Updates (Soon to be released in #bblue#k)#e\r\nBoss PQ#l\r\nMonster Park#l#b\r\nJMS Neo Tokyo#l\r\nUlu City#l\r\nGold Beach#l\r\nRiena Strait#l\r\nLionheart Castle#l#n#k");
+                cm.sendNext("Available Content (Latest releases in #bblue#k)#e\r\nBoss PQ#l\r\nMonster Park#l#b\r\nNeo Tokyo#l\r\nUlu City#l\r\nGold Beach#l\r\nRiena Strait#l\r\nLionheart Castle#l#n#k");
             }  else if (selection == 3) {
                 status = 23;
-                cm.sendNext("#eTerms of Service - 19.03.2015:#n\r\nThis is only an abbreviated version of the ToS. Please read the ToS on the forums if you are unsure about one of these rules.\r\n\r\nThe following offences will lead to a ban:\r\n\r\n#e1.Hacking, Botting, Use of 3rd Party Programs#n\r\nIncludes all WZ Edits and Cheat Programs. Botting includes all attempts to play while away from keyboard.\r\n#bIP Ban#k\r\n\r\n#e2.Kill Stealing and Harassment#n\r\nIf you want to report someone for ksing or harassment, please ensure that:\r\nI. You have told them their behaviour will lead to a ban.\r\nII. KS: They have attacked in your map for at least 1 minute. Harrasment: The harassment been going on for a longer period.\r\nIII. You include an unedited SS in your report.\r\n#bAccount Ban#k\r\n\r\n#e3.Bug/Glitch Exploits#n\r\nLimited to bugs/glitches which will give a significant gameplay advanatge. Visual bugs/glitches are not considered exploitable. If you find any exploitable bugs/glitches please report them to a gm.\r\n#bIP Ban#k\r\n\r\n#e4.Account Sharing#n\r\nInludes different people playing on one account on the same computer, also includes sharing your password/id.\r\n#bAccount Ban#k\r\n\r\n#e5.Innapropriate and Non-English Smegas#n\r\nRacist, homophobic or sexist slur is not to be used in smegas. Vulgarity is not considered innapropriate unless another player/group is directly addressed. English is the official language in this server, so please keep all smegas in english.\r\n#b7-Day Ban or Mute#k\r\n\r\n#e6.Spam or Advertisement#n\r\nSpam (repeating the same message again and again) is only allowed in fm. Advertising other websites or products is not allowed.\r\n\r\n#b7-Day Ban or Mute#k");
+                cm.sendNext("#eTerms of Service - 19.03.2015:#n\r\nThis is only an abbreviated version of the ToS. Please read the ToS on the forums if you are unsure about one of these rules.\r\n\r\nThe following offences will lead to a ban:\r\n\r\n#e1.Hacking, Botting, Use of 3rd Party Programs#n\r\nIncludes all WZ Edits and Cheat Programs. Botting includes all attempts to play while away from keyboard.\r\n#bIP Ban#k\r\n\r\n#e2.Kill Stealing and Harassment#n\r\nIf you want to report someone for ksing or harassment, please ensure that:\r\nI. You have told them their behaviour will lead to a ban.\r\nII. KS: They have attacked in your map for at least 1 minute. Harrasment: The harassment been going on for a longer period.\r\nIII. You include an unedited SS in your report.\r\n#bAccount Ban#k\r\n\r\n#e3.Bug/Glitch Exploits#n\r\nLimited to bugs/glitches which will give a significant gameplay advanatge. Visual bugs/glitches are not considered exploitable. If you find any exploitable bugs/glitches please report them to a gm.\r\n#bIP Ban#k\r\n\r\n#e4.Account Sharing#n\r\nInludes different people playing on one account on the same computer, also includes sharing your password/id.\r\n#bAccount Ban#k\r\n\r\n#e5.Multi Clienting/Accounting: Includes having two clients open on one computer AND using two seperate computers to play on two accounts. Creating two accounts is allowed, but they may not be played at the same time.\r\n#IP Ban#k\r\n\r\n#n\r\n#e6.Innapropriate and Non-English Smegas#n\r\nRacist, homophobic or sexist slur is not to be used in smegas. Vulgarity is not considered innapropriate unless another player/group is directly addressed. English is the official language in this server, so please keep all smegas in english.\r\n#b7-Day Ban or Mute#k\r\n\r\n#e7.Spam or Advertisement#n\r\nSpam (repeating the same message again and again) is only allowed in fm. Advertising other websites or products is not allowed.\r\n\r\n#b7-Day Ban or Mute#k");
             }
     } else if (status == 29) {
         cm.sendNext("There is a variety of #bcustom features#k in #eJourneyMS#n. Most of them can be accessed through the ~admin command.");
