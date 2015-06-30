@@ -147,7 +147,9 @@ public class CashShopFactory {
                     return;
                 }
             }
-            bestitems.add( new Pair(sn, 1));
+            if (WorldTimer.getInstance().getUptime() < 60 * 60 * 6) {
+                bestitems.add( new Pair(sn, 1));
+            }
         } finally {
             bestWLock.unlock();
         }
