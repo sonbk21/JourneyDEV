@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import scripting.event.EventManager;
@@ -39,8 +40,10 @@ public class MapleRewardManager {
     
     private static MapleRewardManager instance = null;
     private final EnumMap<RewardEvent, List<MapleRewardEntry>> rewards = new EnumMap<>(RewardEvent.class);
+    private final ReentrantLock getRewardLock;
     
     private MapleRewardManager() {
+        getRewardLock = new ReentrantLock(true);
     }
     
     public static MapleRewardManager getInstance() {
@@ -51,42 +54,38 @@ public class MapleRewardManager {
     }
     
     public enum RewardEvent {
-        GACHAPON, FISHING, TREASURE;
+        GACHAPON, FISHING, SILVERBOX, GOLDBOX;
     }
     
     public MapleRewardEntry chooseRandomItem(RewardEvent event) {
-        List<MapleRewardEntry> rewardlist = rewards.get(event);
-        if (rewardlist.isEmpty())
-            return null;
-        MapleRewardEntry ret;
-        do {
-            ret = rewardlist.get(Randomizer.nextInt(rewardlist.size()));
-            if (Randomizer.nextInt(ret.rarity) != 0)
-                ret = null;
-        } while (ret == null);
-        return ret;
-    }
-    
-    public boolean loadEventRewards(RewardEvent event) {
-        List<MapleRewardEntry> entries = new LinkedList<>();
-        
-        try (PreparedStatement ps = DatabaseConnection.getConnection().prepareStatement("SELECT itemid FROM rewards WHERE world = ? AND event = ?")) {
-            ps.setBoolean(1, false);
-            ps.setInt(2, event.ordinal());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    entries.add( new MapleRewardEntry(rs.getInt("itemid"), rs.getShort("min"), rs.getShort("max"), rs.getByte("rarity")));
+        getRewardLock.lock(); 
+        try {
+            List<MapleRewardEntry> rewardlist = rewards.get(event);
+            if (rewardlist.isEmpty())
+                return null;
+            MapleRewardEntry ret;
+            int rarity;
+            do {
+                ret = rewardlist.get(Randomizer.nextInt(rewardlist.size()));
+                rarity = ret.rarity.get();
+                if (Randomizer.nextInt(rarity) != 0) {
+                    if (rarity > 3 && rarity < 7 && Randomizer.nextInt(rarity/2) == 0) {
+                        rewardlist.remove(ret);
+                        ret.rarity.decrementAndGet();
+                        rewardlist.add(ret);
+                    }
+                    ret = null;
                 }
-                rs.close();
+            } while (ret == null);
+            if (rarity > 2 && rarity < 6) {
+                rewardlist.remove(ret);
+                ret.rarity.incrementAndGet();
+                rewardlist.add(ret);
             }
-            ps.close();
-        } catch (SQLException ex) {
-            Logger.getLogger(EventManager.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
+            return ret;
+        } finally {
+            getRewardLock.unlock();
         }
-        
-        rewards.put(event, entries);
-        return !entries.isEmpty();
     }
     
     public int loadAllRewards() {
