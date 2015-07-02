@@ -20,6 +20,8 @@ package client.command;
 import client.MapleClient;
 import client.command.PlayerCommand.*;
 import client.command.PlayerCommand.type2Command.*;
+import client.command.GMCommand.*;
+import client.command.AdminCommand.*;
 import java.util.EnumMap;
 import java.util.Map;
 import tools.MaplePacketCreator;
@@ -31,14 +33,14 @@ import tools.MaplePacketCreator;
 
 public class CommandProcessor {
     
-    private final static Map<Commands, Command> playerCommands = new EnumMap<>(Commands.class);
+    private final static Map<Commands, Command> commands = new EnumMap<>(Commands.class);
     private final static CommandProcessor instance = new CommandProcessor();
     
     public enum Commands {
-        DISPOSE, HELP, INFO, TIME, GM, BOSSHP, FM, PROFESSION, ADMIN, GOTO, STR, DEX, INT, LUK;
+        DISPOSE, HELP, INFO, TIME, GM, BOSSHP, FM, PROFESSION, ADMIN, NOTICE, GOTO, SPAWN, ID, ITEM, JOB, MAXSKILLS, MESOS, SERVERNOTICE, NPC, SETGMLEVEL, SHUTDOWN;
         
         public byte getGMLevel() {
-            return (byte) ((this.compareTo(ADMIN) > 0)? 1 : 0);
+            return (byte) ((this.compareTo(SERVERNOTICE) > 0)? 2 : (this.compareTo(ADMIN) > 0)? 1 : 0);
         }
         
         public static Commands fromString(String type, char heading) {
@@ -47,15 +49,27 @@ public class CommandProcessor {
     }
     
     private CommandProcessor() {
-        playerCommands.put(Commands.DISPOSE, dispose.instance);
-        playerCommands.put(Commands.HELP, help.instance);
-        playerCommands.put(Commands.INFO, info.instance);
-        playerCommands.put(Commands.TIME, time.instance);
-        playerCommands.put(Commands.BOSSHP, bosshp.instance);
-        playerCommands.put(Commands.FM, fm.instance);
-        playerCommands.put(Commands.PROFESSION, profession.instance);
-        playerCommands.put(Commands.ADMIN, admin.instance);
-        playerCommands.put(Commands.GM, gm.instance);
+        commands.put(Commands.DISPOSE, dispose.instance);
+        commands.put(Commands.HELP, help.instance);
+        commands.put(Commands.INFO, info.instance);
+        commands.put(Commands.TIME, time.instance);
+        commands.put(Commands.BOSSHP, bosshp.instance);
+        commands.put(Commands.FM, fm.instance);
+        commands.put(Commands.PROFESSION, profession.instance);
+        commands.put(Commands.ADMIN, admin.instance);
+        commands.put(Commands.GM, gm.instance);
+        commands.put(Commands.NOTICE, notice.instance);
+        commands.put(Commands.GOTO, _goto.instance);
+        commands.put(Commands.SPAWN, spawn.instance);
+        commands.put(Commands.ID, id.instance);
+        commands.put(Commands.ITEM, item.instance);
+        commands.put(Commands.JOB, job.instance);
+        commands.put(Commands.MAXSKILLS, maxskills.instance);
+        commands.put(Commands.MESOS, mesos.instance);
+        commands.put(Commands.SERVERNOTICE, servernotice.instance);
+        commands.put(Commands.NPC, npc.instance);
+        commands.put(Commands.SETGMLEVEL, setgmlevel.instance);
+        commands.put(Commands.SHUTDOWN, shutdown.instance);
     }
     
     public static CommandProcessor getInstance() {
@@ -71,20 +85,7 @@ public class CommandProcessor {
                 c.announce(MaplePacketCreator.enableActions());
                 return;
             }
-                        
-            switch (type.getGMLevel()) {
-                case 0:
-                    playerCommands.get(type).execute(c, args);
-                    break;
-                case 1:
-                    //GMCommand.getInstance().execute(type, c, args);
-                    break;
-                case 2:
-                    //AdminCommand.getInstance().execute(type, c, args);
-                    break;
-                default:
-                    c.announce(MaplePacketCreator.enableActions());
-            }
+            commands.get(type).execute(c, args);
         } catch (IllegalArgumentException iae) { //Hmm...
             c.getPlayer().message("Command "+args[0]+" does not exist.");
             c.announce(MaplePacketCreator.enableActions());
