@@ -272,6 +272,7 @@ public class PlayerStats {
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(18, 23));
                 break;
         }
+        addToStat(MapleStat.MAXHP, (short) (getLocal(EquipStat.STR) / 10)); //...shhh
         addToStat(MapleStat.MAXMP, (short) (getLocal(EquipStat.INT) / 10));
         
         if (job.getId() % 1000 > 0) {
