@@ -92,25 +92,15 @@ public class PlayerStats {
     
     public void recalcLocalStats(MapleCharacter chr) {
         int oldmaxhp = getLocal(EquipStat.HP);
+        
         localstats.put(EquipStat.SPEED, (short) 100);
         localstats.put(EquipStat.JUMP, (short) 100);
-        
-        for (EnumMap.Entry<MapleStat, Short> entry : stats.entrySet()) {
-            switch (entry.getKey()) {
-                case MP:
-                case HP:
-                    continue;
-                case STR:
-                case DEX:
-                case LUK:
-                case INT:
-                case MAXHP:
-                case MAXMP:
-                    localstats.put(entry.getKey().convertToEquipStat(), entry.getValue());
-                    break;
-            }
-        }
-        localstats.put(EquipStat.MAGIC, localstats.get(EquipStat.INT));
+        localstats.put(EquipStat.STR, getStat(MapleStat.STR));
+        localstats.put(EquipStat.DEX, getStat(MapleStat.DEX));
+        localstats.put(EquipStat.INT, getStat(MapleStat.INT));
+        localstats.put(EquipStat.LUK, getStat(MapleStat.LUK));
+        localstats.put(EquipStat.HP, getStat(MapleStat.MAXHP));
+        localstats.put(EquipStat.MP, getStat(MapleStat.MAXMP));
         
         for (Item item : chr.getInventory(MapleInventoryType.EQUIPPED)) {
             Equip equip = (Equip) item;
@@ -126,6 +116,7 @@ public class PlayerStats {
                 }
             }
         }
+        localstats.put(EquipStat.MAGIC, localstats.get(EquipStat.INT));
         
         Short hbhp = chr.getBuffedValue(MapleBuffStat.HYPERBODYHP);
         if (hbhp != null) {
@@ -218,6 +209,7 @@ public class PlayerStats {
         
         switch (newJob.getBaseJob()) { //not gms-like, who the fk cares
             case WARRIOR: 
+            case ARAN1:
                 addToStat(MapleStat.MAXHP, (short) Randomizer.rand(200, 250));
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(20, 25));
                 break;
@@ -243,7 +235,7 @@ public class PlayerStats {
         addToStat(MapleStat.LEVEL, (short) 1);
         
         MapleJob job = MapleJob.getById(getStat(MapleStat.JOB));
-        if (job == MapleJob.BEGINNER) {
+        if (job == MapleJob.BEGINNER || job == MapleJob.LEGEND) {
             stats.put(MapleStat.AVAILABLEAP, (short) 0);
             if (stats.get(MapleStat.LEVEL) < 6) {
                 addToStat(MapleStat.STR, (short) 5);
@@ -257,10 +249,12 @@ public class PlayerStats {
         
         switch (job.getBaseJob()) {
             case BEGINNER:
+            case LEGEND:
                 addToStat(MapleStat.MAXHP, (short) Randomizer.rand(12, 16));
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(10, 12));
                 break;
             case WARRIOR:
+            case ARAN1:
                 addToStat(MapleStat.MAXHP, (short) Randomizer.rand(24 + (impMaxHp * 4), 28 + (impMaxHp * 4)));
                 addToStat(MapleStat.MAXMP, (short) Randomizer.rand(4, 6));
                 break;
@@ -283,11 +277,6 @@ public class PlayerStats {
         if (job.getId() % 1000 > 0) {
             addToStat(MapleStat.AVAILABLESP, (short) 3);
         }
-    }
-    
-    public void fullHeal() {
-        stats.put(MapleStat.HP, getLocal(EquipStat.HP));
-        stats.put(MapleStat.HP, getLocal(EquipStat.MP));
     }
     
     public PreparedStatement getStatement(Connection con, int charid) throws SQLException {
