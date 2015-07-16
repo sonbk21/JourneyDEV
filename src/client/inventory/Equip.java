@@ -21,8 +21,6 @@ import client.MapleClient;
 import constants.ItemConstants;
 import java.util.EnumMap;
 import java.util.LinkedList;
-import java.util.List;
-import server.MapleItemInformationProvider;
 import tools.MaplePacketCreator;
 import tools.Pair;
 import tools.Randomizer;
@@ -45,6 +43,9 @@ public class Equip extends Item {
     private float itemExp;
     private int ringid = -1;
     
+    private final EnumMap<EquipStat, Pair<Byte, Byte>> apStatups = new EnumMap<>(EquipStat.class);
+    private byte availableAP = -1;
+    
     private boolean isRevealed = false;
     private boolean isWearing = false;
 
@@ -53,6 +54,11 @@ public class Equip extends Item {
         
         public boolean isInRange(EquipStat low, EquipStat high) {
             return compareTo(low) >= 0 && compareTo(high) <= 0;
+        }
+        
+        public String getName() {
+            String temp = this.toString();
+            return temp.substring(0, 1) + temp.substring(1, temp.length()).toLowerCase();
         }
     }
     
@@ -160,57 +166,53 @@ public class Equip extends Item {
     }
 
     public void gainLevel(MapleClient c, boolean timeless) {
-        List<Pair<String, Integer>> statups = MapleItemInformationProvider.getInstance().getItemLevelupStats(getItemId(), itemLevel, timeless);
-        for (Pair<String, Integer> stat : statups) {
-            switch (stat.getLeft()) {
-                case "incSTR":
-                    stats.put(EquipStat.STR, (short) (getStat(EquipStat.STR) + stat.getRight()));
-                    break;
-                case "incDEX":
-                    stats.put(EquipStat.DEX, (short) (getStat(EquipStat.DEX) + stat.getRight()));
-                    break;
-                case "incINT":
-                    stats.put(EquipStat.INT, (short) (getStat(EquipStat.INT) + stat.getRight()));
-                    break;
-                case "incLUK":
-                    stats.put(EquipStat.LUK, (short) (getStat(EquipStat.LUK) + stat.getRight()));
-                    break;
-                case "incMHP":
-                    stats.put(EquipStat.HP, (short) (getStat(EquipStat.HP) + stat.getRight()));
-                    break;
-                case "incMMP":
-                    stats.put(EquipStat.MP, (short) (getStat(EquipStat.MP) + stat.getRight()));
-                    break;
-                case "incPAD":
-                    stats.put(EquipStat.WATK, (short) (getStat(EquipStat.WATK) + stat.getRight()));
-                    break;
-                case "incMAD":
-                    stats.put(EquipStat.MAGIC, (short) (getStat(EquipStat.MAGIC) + stat.getRight()));
-                    break;
-                case "incPDD":
-                    stats.put(EquipStat.WDEF, (short) (getStat(EquipStat.WDEF) + stat.getRight()));
-                    break;
-                case "incMDD":
-                    stats.put(EquipStat.MDEF, (short) (getStat(EquipStat.MDEF) + stat.getRight()));
-                    break;
-                case "incEVA":
-                    stats.put(EquipStat.AVOID, (short) (getStat(EquipStat.AVOID) + stat.getRight()));
-                    break;
-                case "incACC":
-                    stats.put(EquipStat.ACC, (short) (getStat(EquipStat.ACC) + stat.getRight()));
-                    break;
-                case "incSPEED":
-                    stats.put(EquipStat.SPEED, (short) (getStat(EquipStat.SPEED) + stat.getRight()));
-                    break;
-                case "incJUMP":
-                    stats.put(EquipStat.JUMP, (short) (getStat(EquipStat.JUMP) + stat.getRight()));
-                    break;
-            }
-        }
-        this.itemLevel++;
+        itemLevel++;
+        availableAP += (timeless)? 5 : 3;
         c.announce(MaplePacketCreator.showEquipmentLevelUp());
         c.getPlayer().getMap().broadcastMessage(c.getPlayer(), MaplePacketCreator.showForeignEffect(c.getPlayer().getId(), 15));
         c.getPlayer().forceUpdateItem(this);
+        StringBuilder msg = new StringBuilder("Your ");
+        msg.append((timeless)? "Timeless" : "Reverse");
+        msg.append(" equip has leveled up and gained ");
+        msg.append((timeless)? "5" : "3");
+        msg.append(" Equip AP! Use the ~equipstatup command to distribute its AP.");
+        c.getPlayer().dropMessage(6, msg.toString());
+    }
+    
+    public void distributeAP() {
+        apStatups.entrySet().stream().filter((statup) -> 
+                statup.getValue().left > 0).forEach((stat) -> {
+                    availableAP -= stat.getValue().left;
+                    stats.put(stat.getKey(), (short) (getStat(stat.getKey()) + stat.getValue().left));
+                });
+    }
+    
+    public Pair<Byte, Byte> getAPStatups(EquipStat type, boolean timeless) {
+        if (apStatups.containsKey(type)) {
+            return apStatups.get(type);
+        } else {
+            Pair<Byte, Byte> dist = new Pair<>((byte) 0, (byte) ((timeless)? 2 : 1));
+            apStatups.put(type, dist);
+            return dist;
+        }
+    }
+    
+    public int countStatups() {
+        if (apStatups.isEmpty()) {
+            return 0;
+        } else {
+            return apStatups.values().stream().map((stat) -> { return (int) stat.left; }).reduce(Integer::sum).get();
+        }
+    }
+    
+    public void putStatup(int stat, byte amount) {
+        EquipStat type = EquipStat.values()[stat];
+        Pair<Byte, Byte> dist = new Pair<>(amount, apStatups.get(type).getRight());
+        apStatups.put(type, dist);
+    }
+    
+    public void clearAPStatups() {
+        apStatups.clear();
     }
 
     public int getItemExp() {
@@ -223,6 +225,11 @@ public class Equip extends Item {
         float exp = (expneeded / (1000000 * modifier * modifier)) * gain;
         itemExp += exp;
         if (itemExp >= 364) {
+            if (availableAP > 0) {
+                c.getPlayer().dropMessage(6, "A "+((timeless)? "Timeless" : "Reverse")+" Equip can level up but has unused AP. Please use the ~equipstatup command to distribute its AP.");
+                itemExp -= exp;
+                return;
+            }
             itemExp = (itemExp - 364);
             gainLevel(c, timeless);
         } else {
@@ -236,6 +243,10 @@ public class Equip extends Item {
 
     public void setItemLevel(byte level) {
         this.itemLevel = level;
+    }
+    
+    public byte getAvailableAP() {
+        return availableAP;
     }
 
     @Override
